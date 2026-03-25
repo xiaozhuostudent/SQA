@@ -1,0 +1,35 @@
+{
+  "publishTime" : "2026-01-04 16:05:17",
+  "shuffleOptions" : null,
+  "questions" : [ {
+    "difficulty" : "easy",
+    "score" : 5,
+    "answer" : "D",
+    "options" : "[\"进程管理\", \"内存管理\", \"文件管理\", \"编译程序\"]",
+    "id" : 121,
+    "explanation" : "操作系统的主要功能包括进程管理、内存管理、文件管理、设备管理等。编译程序是应用软件，不属于操作系统功能",
+    "questionType" : "single_choice",
+    "content" : "操作系统的主要功能不包括：",
+    "order" : 1
+  }, {
+    "difficulty" : "medium",
+    "score" : 5,
+    "answer" : "B",
+    "options" : "[\"I/O 完成\", \"分配 CPU\", \"资源释放\", \"创建新线程\"]",
+    "id" : 122,
+    "explanation" : "进程从就绪状态到运行状态需要获得CPU时间片，由调度器分配CPU",
+    "questionType" : "single_choice",
+    "content" : "进程从就绪状态进入运行状态需要：",
+    "order" : 2
+  } ],
+  "description" : "测试",
+  "title" : "测试试卷",
+  "totalScore" : 10,
+  "passScore" : 60,
+  "duration" : 120,
+  "courseName" : "操作系统",
+  "showAnswer" : null,
+  "shuffleQuestions" : null,
+  "courseId" : 3,
+  "paperId" : 6
+}

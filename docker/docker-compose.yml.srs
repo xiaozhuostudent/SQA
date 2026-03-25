@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  srs:
+    image: srs/live
+    container_name: yali-srs
+    ports:
+      - "8000:1935"  # 将宿主机8000端口映射到容器的1935端口
+      - "8090:8080"  # 将宿主机8090端口映射到容器的8080端口
+    volumes:
+      - ./srs.conf:/etc/srs/srs.conf
+      - ./objs/nginx/html:/var/www/html
+    command: /bin/bash -c "cd /etc/srs && /usr/local/bin/srs -c srs.conf"
+    restart: unless-stopped
+    networks:
+      - yali-network
+
+networks:
+  yali-network:
+    driver: bridge

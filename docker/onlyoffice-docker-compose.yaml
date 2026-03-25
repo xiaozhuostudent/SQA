@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  onlyoffice-documentserver:
+    container_name: onlyoffice-documentserver
+    image: onlyoffice/documentserver:7.5
+    restart: unless-stopped
+    ports:
+      - "8081:80"  # 映射到8081端口，避免与其他服务冲突
+      - "8443:443" # HTTPS端口（可选）
+    environment:
+      # JWT配置 - 生产环境建议启用并设置密钥
+      - JWT_ENABLED=false
+      - JWT_SECRET=your-secret-key-here
+      
+      # 数据库配置（可选）- 使用内置PostgreSQL
+      # 如果需要外部数据库，可以配置以下环境变量
+      # - DB_TYPE=postgres
+      # - DB_HOST=postgres
+      # - DB_PORT=5432
+      # - DB_NAME=onlyoffice
+      # - DB_USER=onlyoffice
+      # - DB_PWD=onlyoffice
+      
+      # RabbitMQ配置（可选）
+      # - AMQP_URI=amqp://guest:guest@rabbitmq
+      
+      # Redis配置（可选）
+      # - REDIS_SERVER_HOST=redis
+      # - REDIS_SERVER_PORT=6379
+    volumes:
+      # 数据持久化
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_fonts:/usr/share/fonts/truetype/custom
+      - onlyoffice_forgotten:/var/lib/onlyoffice/documentserver/App_Data/cache/files/forgotten
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # 资源限制（根据实际情况调整）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+# 持久化数据卷
+volumes:
+  onlyoffice_data:
+    driver: local
+  onlyoffice_logs:
+    driver: local
+  onlyoffice_fonts:
+    driver: local
+  onlyoffice_forgotten:
+    driver: local
+
+# 网络配置
+networks:
+  default:
+    name: onlyoffice_network

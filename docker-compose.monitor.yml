@@ -1,0 +1,62 @@
+services:
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.40.0
+    command:
+      - '--redis.addr=redis://120.26.212.210:6379'
+      - '--redis.password=@Yali123456'
+    restart: unless-stopped
+    ports:
+      - '9121:9121'
+    networks:
+      - monitor
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitor/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    ports:
+      - '9090:9090'
+    networks:
+      - monitor
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      # 允许匿名访问（只读）
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      # 允许在 iframe 中嵌入
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      # 跨域配置
+      - GF_SECURITY_COOKIE_SAMESITE=none
+      - GF_SECURITY_COOKIE_SECURE=false
+      # 自动预配置
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - monitor
+    depends_on:
+      - prometheus
+
+networks:
+  monitor:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

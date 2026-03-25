@@ -1,0 +1,10 @@
+flask
+flask-cors
+dashscope
+openai
+requests
+huggingface_hub
+deep_translator
+pymysql
+chromadb
+sentence-transformers

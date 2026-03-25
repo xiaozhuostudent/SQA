@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助手测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .chat-container {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #fafafa;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f1f8e9;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1976d2;
+        }
+        .status {
+            text-align: center;
+            color: #666;
+            margin: 10px 0;
+        }
+        .role-selector {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .role-selector label {
+            margin: 0 10px;
+            cursor: pointer;
+        }
+        .example-queries {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .example-queries h4 {
+            margin: 0 0 10px 0;
+            color: #555;
+            font-size: 14px;
+        }
+        .example-btn {
+            display: inline-block;
+            margin: 5px;
+            padding: 6px 12px;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #81c784;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .example-btn:hover {
+            background-color: #c8e6c9;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI助手测试页面</h1>
+        <div class="status" id="status">准备就绪</div>
+        
+        <!-- 角色选择 -->
+        <div class="role-selector">
+            <label><input type="radio" name="role" value="student" checked> 学生</label>
+            <label><input type="radio" name="role" value="teacher"> 教师</label>
+            <label><input type="radio" name="role" value="admin"> 管理员</label>
+        </div>
+        
+        <!-- 示例查询 -->
+        <div class="example-queries" id="exampleQueries">
+            <h4>💡 示例问题（点击快速输入）：</h4>
+            <div id="exampleButtons"></div>
+        </div>
+        
+        <div class="chat-container" id="chatContainer"></div>
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="输入您的问题..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 角色示例问题
+        const roleExamples = {
+            student: [
+                '我是谁？',
+                '我选了哪些课程？'
+            ],
+            teacher: [
+                '我是谁？',
+                '我教授哪些课程？'
+            ],
+            admin: [
+                '系统中有多少课程？',
+                '当前有多少学生？'
+            ]
+        };
+
+        // 更新示例按钮
+        function updateExamples() {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const examples = roleExamples[role];
+            const container = document.getElementById('exampleButtons');
+            container.innerHTML = '';
+            examples.forEach(example => {
+                const btn = document.createElement('span');
+                btn.className = 'example-btn';
+                btn.textContent = example;
+                btn.onclick = () => {
+                    document.getElementById('userInput').value = example;
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 监听角色切换
+        document.addEventListener('DOMContentLoaded', () => {
+            updateExamples();
+            document.querySelectorAll('input[name="role"]').forEach(radio => {
+                radio.addEventListener('change', updateExamples);
+            });
+        });
+
+        function addMessage(message, isUser) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = message;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const role = document.querySelector('input[name="role"]:checked').value;
+
+            // 显示用户消息
+            addMessage(message, true);
+            input.value = '';
+
+            // 更新状态
+            document.getElementById('status').textContent = '正在思考...';
+
+            // 发送请求到后端
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    role: role,
+                    userId: '1',
+                    username: 'test_user',
+                    sessionId: 'test_session',
+                    sessionTitle: '测试会话'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').textContent = '准备就绪';
+                if (data.success && data.response) {
+                    addMessage(data.response, false);
+                } else if (data.error) {
+                    addMessage('错误: ' + data.error, false);
+                } else {
+                    addMessage('抱歉，我没有理解您的问题。', false);
+                }
+            })
+            .catch(error => {
+                document.getElementById('status').textContent = '准备就绪';
+                addMessage('错误: ' + error.message, false);
+            });
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 页面加载完成后添加欢迎消息
+        window.onload = function() {
+            addMessage('您好！我是AI助手，有什么我可以帮您的吗？', false);
+        }
+    </script>
+</body>
+</html>

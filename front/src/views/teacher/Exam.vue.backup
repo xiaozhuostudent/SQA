@@ -1,0 +1,300 @@
+<template>
+  <div class="exam-container">
+    <el-card class="header-card">
+      <template #header>
+        <div class="card-header">
+          <h2>📝 在线考试</h2>
+          <el-button type="primary" @click="showQuestionBank">题库练习</el-button>
+        </div>
+      </template>
+
+      <el-tabs v-model="activeTab" @tab-click="handleTabChange">
+        <el-tab-pane label="考试列表" name="list">
+          <el-table :data="examList" stripe style="width: 100%" v-loading="loading" element-loading-text="加载考试数据中...">
+            <el-table-column prop="title" label="考试名称" min-width="200" />
+            <el-table-column prop="courseName" label="课程" width="150" />
+            <el-table-column prop="duration" label="时长(分钟)" width="120" />
+            <el-table-column prop="totalScore" label="总分" width="100" />
+            <el-table-column prop="startTime" label="开始时间" width="180" />
+            <el-table-column prop="endTime" label="结束时间" width="180" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="row.status === 'published'" type="primary" size="small" @click="startExam(row)">
+                  开始考试
+                </el-button>
+                <el-button v-else-if="row.myStatus === 'submitted'" type="info" size="small" @click="viewResult(row)">
+                  查看成绩
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="我的考试" name="my">
+          <el-table :data="myExamList" stripe style="width: 100%" v-loading="loading" element-loading-text="加载考试记录中...">
+            <el-table-column prop="examTitle" label="考试名称" min-width="200" />
+            <el-table-column prop="studentNumber" label="学号" width="120" />
+            <el-table-column prop="startTime" label="开始时间" width="180" />
+            <el-table-column prop="submitTime" label="提交时间" width="180" />
+            <el-table-column label="客观题得分" width="120">
+              <template #default="{ row }">
+                <span class="score-text">{{ row.objectiveScore || 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="总分" width="100">
+              <template #default="{ row }">
+                <span class="score-text primary">{{ row.totalScore || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getExamStatusType(row.status)">{{ row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button type="info" size="small" @click="viewAnswers(row)">查看答案</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <!-- 题库练习对话框 -->
+    <el-dialog v-model="questionBankVisible" title="📚 题库练习" width="80%">
+      <el-form :inline="true" style="margin-bottom: 20px;">
+        <el-form-item label="题目类型">
+          <el-select v-model="questionType" placeholder="请选择">
+            <el-option label="全部" value="" />
+            <el-option label="单选题" value="single_choice" />
+            <el-option label="多选题" value="multiple_choice" />
+            <el-option label="判断题" value="true_false" />
+            <el-option label="填空题" value="fill_blank" />
+            <el-option label="简答题" value="short_answer" />
+            <el-option label="编程题" value="programming" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="loadQuestions">刷新题库</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table :data="filteredQuestions" stripe max-height="500">
+        <el-table-column type="index" label="#" width="60" />
+        <el-table-column prop="questionType" label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag size="small">{{ getQuestionTypeText(row.questionType) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="content" label="题目内容" min-width="300" show-overflow-tooltip />
+        <el-table-column prop="score" label="分值" width="80" />
+        <el-table-column prop="difficulty" label="难度" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getDifficultyType(row.difficulty)" size="small">
+              {{ row.difficulty }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="practiceQuestion(row)">练习</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getExamPapers, getStudentExams, getQuestions, startExam as startExamApi } from '@/api/exam'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+const activeTab = ref('list')
+const examList = ref([])
+const myExamList = ref([])
+const questionBankVisible = ref(false)
+const questionType = ref('')
+const questionList = ref([])
+
+const filteredQuestions = computed(() => {
+  if (!questionType.value) return questionList.value
+  return questionList.value.filter(q => q.questionType === questionType.value)
+})
+
+const loadExamList = async () => {
+  loading.value = true
+  try {
+    // 这里需要根据学生选课情况加载考试
+    const courses = [1] // 示例课程ID
+    const promises = courses.map(courseId => getExamPapers(courseId))
+    const results = await Promise.all(promises)
+    examList.value = results.flat()
+  } catch (error) {
+    ElMessage.error('加载考试列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadMyExams = async () => {
+  loading.value = true
+  try {
+    const res = await getStudentExams(userStore.userInfo.id)
+    myExamList.value = res.data
+  } catch (error) {
+    ElMessage.error('加载我的考试失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadQuestions = async () => {
+  try {
+    const courses = [1] // 示例课程ID
+    const promises = courses.map(courseId => getQuestions(courseId))
+    const results = await Promise.all(promises)
+    questionList.value = results.flat().map(r => r.data).flat()
+  } catch (error) {
+    ElMessage.error('加载题库失败')
+  }
+}
+
+const showQuestionBank = () => {
+  questionBankVisible.value = true
+  if (questionList.value.length === 0) {
+    loadQuestions()
+  }
+}
+
+const startExam = async (exam) => {
+  try {
+    const res = await startExamApi({
+      examPaperId: exam.id,
+      studentId: userStore.userInfo.id,
+      studentName: userStore.userInfo.realName,
+      studentNumber: userStore.userInfo.studentNumber
+    })
+    ElMessage.success('开始考试成功')
+    // 跳转到考试页面
+    console.log('考试ID:', res.data.id)
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '开始考试失败')
+  }
+}
+
+const viewResult = (exam) => {
+  ElMessage.info('查看成绩功能开发中')
+}
+
+const viewAnswers = (exam) => {
+  ElMessage.info('查看答案功能开发中')
+}
+
+const practiceQuestion = (question) => {
+  ElMessage.info(`开始练习: ${question.content}`)
+}
+
+const handleTabChange = (tab) => {
+  if (tab.props.name === 'list') {
+    loadExamList()
+  } else if (tab.props.name === 'my') {
+    loadMyExams()
+  }
+}
+
+const getStatusType = (status) => {
+  const types = {
+    draft: 'info',
+    published: 'success',
+    ended: 'warning'
+  }
+  return types[status] || 'info'
+}
+
+const getStatusText = (status) => {
+  const texts = {
+    draft: '草稿',
+    published: '进行中',
+    ended: '已结束'
+  }
+  return texts[status] || status
+}
+
+const getExamStatusType = (status) => {
+  const types = {
+    in_progress: 'warning',
+    submitted: 'info',
+    graded: 'success'
+  }
+  return types[status] || 'info'
+}
+
+const getQuestionTypeText = (type) => {
+  const texts = {
+    single_choice: '单选',
+    multiple_choice: '多选',
+    true_false: '判断',
+    fill_blank: '填空',
+    short_answer: '简答',
+    programming: '编程'
+  }
+  return texts[type] || type
+}
+
+const getDifficultyType = (difficulty) => {
+  const types = {
+    easy: 'success',
+    medium: 'warning',
+    hard: 'danger'
+  }
+  return types[difficulty] || 'info'
+}
+
+onMounted(() => {
+  loadExamList()
+})
+</script>
+
+<style scoped>
+.exam-container {
+  padding: 20px;
+  background: var(--bg-primary);
+  min-height: 100vh;
+}
+
+.header-card {
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.score-text {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--accent-green);
+}
+
+.score-text.primary {
+  color: var(--primary);
+  font-size: 18px;
+}
+</style>

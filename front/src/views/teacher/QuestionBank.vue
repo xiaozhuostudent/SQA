@@ -1,0 +1,665 @@
+<template>
+  <div class="question-bank-page">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>题库管理</span>
+          <div>
+            <el-button type="success" @click="showImportDialog">
+              <el-icon><Upload /></el-icon>
+              批量导入
+            </el-button>
+            <el-button type="primary" @click="showCreateDialog">添加题目</el-button>
+          </div>
+        </div>
+      </template>
+
+      <!-- 搜索栏 -->
+      <el-form :inline="true" :model="searchForm" class="search-form">
+        <el-form-item label="题目类型">
+          <el-select v-model="searchForm.type" placeholder="全部" style="width: 150px">
+            <el-option label="全部" value="" />
+            <el-option label="单选题" value="single_choice" />
+            <el-option label="多选题" value="multiple_choice" />
+            <el-option label="判断题" value="true_false" />
+            <el-option label="填空题" value="fill_blank" />
+            <el-option label="简答题" value="short_answer" />
+            <el-option label="编程题" value="programming" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="课程">
+          <el-select v-model="searchForm.courseId" placeholder="全部" style="width: 200px">
+            <el-option label="全部" value="" />
+            <el-option
+              v-for="course in courses"
+              :key="course.id"
+              :label="course.name"
+              :value="course.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="关键词">
+          <el-input v-model="searchForm.keyword" placeholder="题目内容" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="loadQuestions">查询</el-button>
+          <el-button @click="resetSearch">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 题目列表 -->
+      <el-table :data="questions" style="width: 100%">
+        <el-table-column type="index" label="序号" width="60" />
+        <el-table-column prop="content" label="题目内容" min-width="300" show-overflow-tooltip />
+        <el-table-column prop="questionType" label="题型" width="100">
+          <template #default="scope">
+            <el-tag :type="getTypeTag(scope.row.questionType)">
+              {{ getTypeName(scope.row.questionType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="courseName" label="所属课程" width="150" />
+        <el-table-column prop="score" label="分值" width="80" />
+        <el-table-column prop="difficulty" label="难度" width="100">
+          <template #default="scope">
+            <el-rate v-model="scope.row.difficulty" disabled :max="3" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <el-table-column label="操作" fixed="right" width="200">
+          <template #default="scope">
+            <el-button size="small" @click="editQuestion(scope.row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="deleteQuestion(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.size"
+        :total="pagination.total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadQuestions"
+        @size-change="loadQuestions"
+        style="margin-top: 20px; justify-content: flex-end;"
+      />
+    </el-card>
+
+    <!-- 创建/编辑题目对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="800px">
+      <el-form :model="questionForm" label-width="100px">
+        <el-form-item label="题目类型">
+          <el-select v-model="questionForm.questionType" style="width: 100%">
+            <el-option label="单选题" value="single_choice" />
+            <el-option label="多选题" value="multiple_choice" />
+            <el-option label="判断题" value="true_false" />
+            <el-option label="填空题" value="fill_blank" />
+            <el-option label="简答题" value="short_answer" />
+            <el-option label="编程题" value="programming" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="所属课程">
+          <el-select v-model="questionForm.courseId" style="width: 100%">
+            <el-option
+              v-for="course in courses"
+              :key="course.id"
+              :label="course.name"
+              :value="course.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="题目内容">
+          <el-input
+            v-model="questionForm.content"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入题目内容"
+          />
+        </el-form-item>
+        <el-form-item label="选项" v-if="['single_choice', 'multiple_choice'].includes(questionForm.questionType)">
+          <el-input
+            v-model="questionForm.options"
+            type="textarea"
+            :rows="4"
+            placeholder="每行一个选项，如：A. 选项内容"
+          />
+        </el-form-item>
+        <el-form-item label="正确答案">
+          <el-input
+            v-model="questionForm.answer"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入正确答案"
+          />
+        </el-form-item>
+        <el-form-item label="分值">
+          <el-input-number v-model="questionForm.score" :min="1" :max="100" />
+        </el-form-item>
+        <el-form-item label="难度">
+          <el-rate v-model="questionForm.difficulty" :max="3" />
+        </el-form-item>
+        <el-form-item label="解析">
+          <el-input
+            v-model="questionForm.explanation"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入题目解析（可选）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 导入题目对话框 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入题目" width="700px">
+      <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
+        <template #title>
+          <div>
+            <p>支持导入格式：Excel (.xlsx, .xls) 或 JSON (.json)</p>
+            <p style="margin-top: 8px;">
+              <el-link type="primary" @click="downloadTemplate">下载导入模板</el-link>
+              <span style="margin: 0 10px;">|</span>
+              <el-link type="primary" @click="showFormatHelp">查看格式说明</el-link>
+            </p>
+          </div>
+        </template>
+      </el-alert>
+
+      <el-form label-width="100px">
+        <el-form-item label="所属课程">
+          <el-select v-model="importCourseId" placeholder="请选择课程" style="width: 100%;">
+            <el-option
+              v-for="course in courses"
+              :key="course.id"
+              :label="course.name"
+              :value="course.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="选择文件">
+          <el-upload
+            ref="uploadRef"
+            action="#"
+            :auto-upload="false"
+            :on-change="handleFileChange"
+            :limit="1"
+            accept=".xlsx,.xls,.json"
+            drag
+          >
+            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 Excel (.xlsx, .xls) 或 JSON (.json) 格式，单次最多导入500道题目
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleImport" :loading="importing">开始导入</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 格式说明对话框 -->
+    <el-dialog v-model="formatHelpVisible" title="导入格式说明" width="800px">
+      <el-tabs>
+        <el-tab-pane label="Excel格式">
+          <div class="format-help">
+            <h4>Excel文件格式说明：</h4>
+            <p>请确保您的Excel文件包含以下列（顺序不能错）：</p>
+            <ol>
+              <li><strong>题目类型</strong>：single_choice(单选)、multiple_choice(多选)、true_false(判断)、fill_blank(填空)、short_answer(简答)、programming(编程)</li>
+              <li><strong>题目内容</strong>：题目文本</li>
+              <li><strong>选项</strong>：选择题的选项，每行一个，用分号分隔，如：A. 选项1;B. 选项2</li>
+              <li><strong>正确答案</strong>：题目的答案</li>
+              <li><strong>分值</strong>：题目分数，数字</li>
+              <li><strong>难度</strong>：1-3的数字，1最简单，3最难</li>
+              <li><strong>解析</strong>：题目解析（可选）</li>
+            </ol>
+            <p><strong>示例：</strong></p>
+            <pre>single_choice | Java是什么类型的语言？ | A. 编译型;B. 解释型;C. 混合型 | C | 5 | 2 | Java是编译型和解释型的混合</pre>
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="JSON格式">
+          <div class="format-help">
+            <h4>JSON文件格式说明：</h4>
+            <p>JSON文件应为数组格式，每个元素为一道题目，包含以下字段：</p>
+            <pre>[
+  {
+    "questionType": "single_choice",
+    "content": "Java是什么类型的语言？",
+    "options": "A. 编译型;B. 解释型;C. 混合型",
+    "answer": "C",
+    "score": 5,
+    "difficulty": 2,
+    "explanation": "Java是编译型和解释型的混合"
+  }
+]</pre>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+      <template #footer>
+        <el-button type="primary" @click="formatHelpVisible = false">我知道了</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Upload, UploadFilled } from '@element-plus/icons-vue'
+import { getQuestions, createQuestion, updateQuestion, deleteQuestion as deleteQuestionApi, batchImportQuestions } from '@/api/question'
+import questionApi from '@/api/question'
+import { getTeacherCourses } from '@/api/course'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const importDialogVisible = ref(false)
+const formatHelpVisible = ref(false)
+const importCourseId = ref(null)
+const uploadRef = ref(null)
+const importing = ref(false)
+let importFile = null
+
+const searchForm = ref({
+  type: '',
+  courseId: '',
+  keyword: ''
+})
+
+const questions = ref([])
+const courses = ref([])
+const pagination = ref({
+  page: 1,
+  size: 10,
+  total: 0
+})
+
+const questionForm = ref({
+  questionType: 'single_choice',
+  courseId: null,
+  content: '',
+  options: '',
+  answer: '',
+  score: 10,
+  difficulty: 2,
+  explanation: ''
+})
+
+const dialogTitle = computed(() => isEdit.value ? '编辑题目' : '添加题目')
+
+const getTypeTag = (type) => {
+  const map = {
+    'single_choice': '',
+    'multiple_choice': 'warning',
+    'true_false': 'success',
+    'fill_blank': 'info',
+    'short_answer': 'info',
+    'programming': 'danger'
+  }
+  return map[type]
+}
+
+const getTypeName = (type) => {
+  const map = {
+    'single_choice': '单选题',
+    'multiple_choice': '多选题',
+    'true_false': '判断题',
+    'fill_blank': '填空题',
+    'short_answer': '简答题',
+    'programming': '编程题'
+  }
+  return map[type] || type
+}
+
+const loadQuestions = async () => {
+  try {
+    const params = {
+      page: pagination.value.page,
+      size: pagination.value.size,
+      type: searchForm.value.type,
+      courseId: searchForm.value.courseId,
+      keyword: searchForm.value.keyword
+    }
+    const res = await getQuestions(params)
+    if (res.code === 200) {
+      questions.value = res.data.list || res.data || []
+      pagination.value.total = res.data.total || questions.value.length
+    } else {
+      ElMessage.error(res.message || '加载题目失败')
+    }
+  } catch (error) {
+    console.error('加载题目失败:', error)
+    ElMessage.error('加载题目失败')
+  }
+}
+
+const loadCourses = async () => {
+  try {
+    if (!userStore.userInfo?.id) {
+      return
+    }
+    const res = await getTeacherCourses(userStore.userInfo.id)
+    if (res.code === 200) {
+      courses.value = res.data || []
+    }
+  } catch (error) {
+    console.error('加载课程失败:', error)
+  }
+}
+
+const resetSearch = () => {
+  searchForm.value = {
+    type: '',
+    courseId: '',
+    keyword: ''
+  }
+  loadQuestions()
+}
+
+const showCreateDialog = () => {
+  isEdit.value = false
+  questionForm.value = {
+    questionType: 'single_choice',
+    courseId: null,
+    content: '',
+    options: '',
+    answer: '',
+    score: 10,
+    difficulty: 2,
+    explanation: ''
+  }
+  dialogVisible.value = true
+}
+
+const editQuestion = (row) => {
+  isEdit.value = true
+  questionForm.value = { ...row }
+  dialogVisible.value = true
+}
+
+const handleSubmit = async () => {
+  try {
+    if (!questionForm.value.content || !questionForm.value.answer) {
+      ElMessage.error('请填写完整的题目信息')
+      return
+    }
+
+    const data = { ...questionForm.value }
+    const res = isEdit.value 
+      ? await updateQuestion(data.id, data)
+      : await createQuestion(data)
+    
+    if (res.code === 200) {
+      ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
+      dialogVisible.value = false
+      loadQuestions()
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    console.error('操作失败:', error)
+    ElMessage.error('操作失败')
+  }
+}
+
+const deleteQuestion = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定删除该题目吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const res = await deleteQuestionApi(row.id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      loadQuestions()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const showImportDialog = () => {
+  importCourseId.value = null
+  importFile = null
+  importDialogVisible.value = true
+}
+
+const handleFileChange = (file) => {
+  importFile = file.raw
+}
+
+const downloadTemplate = () => {
+  // 创建模板JSON
+  const template = [
+    {
+      questionType: 'single_choice',
+      content: 'Java是什么类型的语言？',
+      options: 'A. 编译型;B. 解释型;C. 混合型',
+      answer: 'C',
+      score: 5,
+      difficulty: 2,
+      explanation: 'Java是编译型和解释型的混合'
+    },
+    {
+      questionType: 'multiple_choice',
+      content: '以下哪些是Java的基本数据类型？',
+      options: 'A. int;B. String;C. boolean;D. char',
+      answer: 'A,C,D',
+      score: 10,
+      difficulty: 2,
+      explanation: 'String是引用类型，不是基本数据类型'
+    },
+    {
+      questionType: 'true_false',
+      content: 'Java支持多继承',
+      options: '',
+      answer: '错',
+      score: 5,
+      difficulty: 1,
+      explanation: 'Java只支持单继承，但支持多实现'
+    }
+  ]
+  
+  const dataStr = JSON.stringify(template, null, 2)
+  const blob = new Blob([dataStr], { type: 'application/json' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '题库导入模板.json'
+  link.click()
+  window.URL.revokeObjectURL(url)
+  ElMessage.success('模板下载成功')
+}
+
+const showFormatHelp = () => {
+  formatHelpVisible.value = true
+}
+
+const handleImport = async () => {
+  if (!importCourseId.value) {
+    ElMessage.error('请选择所属课程')
+    return
+  }
+  
+  if (!importFile) {
+    ElMessage.error('请选择要导入的文件')
+    return
+  }
+  
+  importing.value = true
+  try {
+    const fileType = importFile.name.split('.').pop().toLowerCase()
+    let questions = []
+    
+    if (fileType === 'json') {
+      // 解析JSON文件
+      const text = await importFile.text()
+      questions = JSON.parse(text)
+    } else if (fileType === 'xlsx' || fileType === 'xls') {
+      // Excel文件需要后端解析
+      const formData = new FormData()
+      formData.append('file', importFile)
+      formData.append('courseId', importCourseId.value)
+      
+      const res = await questionApi.importQuestions(formData)
+      if (res.code === 200) {
+        ElMessage.success(`成功导入 ${res.data.count || 0} 道题目`)
+        importDialogVisible.value = false
+        loadQuestions()
+        return
+      } else {
+        throw new Error(res.message || '导入失败')
+      }
+    } else {
+      throw new Error('不支持的文件格式')
+    }
+    
+    // 批量创建题目（JSON格式）
+    if (Array.isArray(questions) && questions.length > 0) {
+      // 为每个题目设置courseId
+      questions.forEach(q => {
+        q.courseId = importCourseId.value
+      })
+      
+      // 调用批量导入API
+      const res = await batchImportQuestions(questions)
+      
+      if (res.code === 200) {
+        const result = res.data
+        const successCount = result.successCount || 0
+        const failCount = result.failCount || 0
+        const total = result.total || questions.length
+        
+        if (failCount > 0) {
+          // 有失败的题目
+          let errorMsg = `导入完成：成功 ${successCount}/${total} 道题目`
+          if (result.errors && result.errors.length > 0) {
+            errorMsg += '\n失败原因：\n' + result.errors.join('\n')
+          }
+          ElMessage.warning(errorMsg)
+        } else {
+          // 全部成功
+          ElMessage.success(`成功导入 ${successCount} 道题目`)
+        }
+        
+        importDialogVisible.value = false
+        loadQuestions()
+      } else {
+        throw new Error(res.message || '批量导入失败')
+      }
+    } else {
+      throw new Error('文件格式错误或无有效题目')
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败: ' + error.message)
+  } finally {
+    importing.value = false
+  }
+}
+
+onMounted(() => {
+  loadCourses()
+  loadQuestions()
+})
+</script>
+
+<style scoped>
+.question-bank-page {
+  padding: 24px;
+  background-color: var(--bg-primary);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-form {
+  margin-bottom: 20px;
+}
+
+:deep(.el-card) {
+  background-color: var(--bg-float);
+  border-color: var(--border);
+}
+
+:deep(.el-card__header) {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+:deep(.el-table) {
+  background-color: var(--bg-float);
+  color: var(--text-primary);
+}
+
+:deep(.el-table th) {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+:deep(.el-table tr) {
+  background-color: var(--bg-float);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--bg-highlight) !important;
+}
+
+.format-help {
+  padding: 20px;
+  color: var(--text-primary);
+}
+
+.format-help h4 {
+  color: var(--accent-cyan);
+  margin-bottom: 15px;
+}
+
+.format-help ol {
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.format-help pre {
+  background: var(--bg-secondary);
+  padding: 15px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-top: 10px;
+  border-left: 4px solid var(--accent-cyan);
+}
+
+:deep(.el-upload-dragger) {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+:deep(.el-upload-dragger:hover) {
+  border-color: var(--accent-cyan);
+}
+</style>

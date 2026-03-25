@@ -1,0 +1,970 @@
+<template>
+  <div class="preparation-container">
+    <!-- 编辑器视图 -->
+    <div v-if="currentTab === 'editor'" class="editor-view">
+      <div class="editor-header">
+        <div class="header-left">
+          <el-button @click="backToHome" :icon="Back" size="small">返回首页</el-button>
+          <span class="doc-title">{{ currentDocTitle }}</span>
+        </div>
+        <div class="header-right">
+          <span v-if="connectionStatus !== 'connected'" class="connection-badge" :class="connectionStatus">
+            {{ connectionText }}
+          </span>
+        </div>
+      </div>
+      <div class="editor-wrapper">
+        <div id="onlyoffice-editor" class="editor-container"></div>
+      </div>
+    </div>
+
+    <!-- 首页视图 -->
+    <div v-else class="home-view">
+      <div class="home-header">
+        <h2>📚 备课中心</h2>
+        <div class="header-actions">
+          <el-button type="primary" @click="createDoc('word')" :icon="Document">
+            新建 Word
+          </el-button>
+          <el-button type="success" @click="createDoc('excel')" :icon="Grid">
+            新建 Excel
+          </el-button>
+          <el-button type="warning" @click="createDoc('powerpoint')" :icon="Monitor">
+            新建 PPT
+          </el-button>
+        </div>
+      </div>
+
+      <div class="home-content">
+        <!-- 快速操作区 -->
+        <el-card class="quick-actions-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <el-icon><Star /></el-icon>
+              <span>快速开始</span>
+            </div>
+          </template>
+          <div class="quick-grid">
+            <div class="quick-item" @click="loadSample('word')">
+              <el-icon :size="40" color="#409EFF"><Document /></el-icon>
+              <span>示例文档</span>
+            </div>
+            <div class="quick-item" @click="loadSample('excel')">
+              <el-icon :size="40" color="#67C23A"><Grid /></el-icon>
+              <span>示例表格</span>
+            </div>
+            <div class="quick-item" @click="loadSample('ppt')">
+              <el-icon :size="40" color="#E6A23C"><Monitor /></el-icon>
+              <span>示例课件</span>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 最近编辑 -->
+        <el-card class="recent-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <el-icon><Clock /></el-icon>
+              <span>最近编辑</span>
+              <el-button 
+                v-if="recentDocs.length > 0" 
+                link 
+                type="danger" 
+                size="small"
+                @click="clearHistory"
+              >
+                清空记录
+              </el-button>
+            </div>
+          </template>
+          
+          <div v-if="recentDocs.length === 0" class="empty-state">
+            <el-icon :size="60" color="#909399"><FolderOpened /></el-icon>
+            <p>暂无编辑记录</p>
+          </div>
+
+          <div v-else class="recent-grid">
+            <div 
+              v-for="doc in recentDocs" 
+              :key="doc.id"
+              class="doc-card"
+              @click="openDocument(doc)"
+            >
+              <div class="doc-icon">
+                <el-icon :size="50" :color="getDocColor(doc.type)">
+                  <component :is="getDocIcon(doc.type)" />
+                </el-icon>
+              </div>
+              <div class="doc-info">
+                <div class="doc-name">{{ doc.title }}</div>
+                <div class="doc-meta">
+                  <span class="doc-type">{{ getDocTypeLabel(doc.type) }}</span>
+                  <span class="doc-time">{{ formatTime(doc.time) }}</span>
+                </div>
+              </div>
+              <el-button 
+                class="delete-btn"
+                :icon="Delete" 
+                circle 
+                size="small" 
+                type="danger"
+                @click.stop="removeFromHistory(doc.id)"
+              />
+            </div>
+          </div>
+        </el-card>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  Setting, Document, Grid, Monitor, EditPen, Back, 
+  Star, Clock, FolderOpened, Delete 
+} from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const currentTab = ref('home') // 'home' | 'editor'
+const currentDocTitle = ref('')
+const connectionStatus = ref('disconnected')
+const connectionText = ref('检测中...')
+const recentDocs = ref([])
+
+const serverConfig = ref({
+  url: 'http://127.0.0.1:8081'
+})
+
+const sampleDocs = {
+  word: 'http://120.26.212.210/resources/testpaper/Java程序设计A卷.docx',
+  excel: 'https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-xlsx-file-for-testing.xlsx',
+  ppt: 'http://120.26.212.210/resources/ppt/Java程序设计课件.pptx'
+}
+
+// 从localStorage加载历史记录
+const loadHistory = () => {
+  try {
+    const history = localStorage.getItem('onlyoffice_recent_docs')
+    if (history) {
+      recentDocs.value = JSON.parse(history)
+    }
+  } catch (error) {
+    console.error('加载历史记录失败:', error)
+  }
+}
+
+// 保存到历史记录
+const saveToHistory = (doc) => {
+  try {
+    const existing = recentDocs.value.findIndex(d => d.url === doc.url)
+    if (existing !== -1) {
+      recentDocs.value.splice(existing, 1)
+    }
+    
+    recentDocs.value.unshift({
+      id: Date.now(),
+      title: doc.title,
+      url: doc.url,
+      type: doc.type,
+      time: new Date().toISOString()
+    })
+    
+    // 只保留最近10条
+    if (recentDocs.value.length > 10) {
+      recentDocs.value = recentDocs.value.slice(0, 10)
+    }
+    
+    localStorage.setItem('onlyoffice_recent_docs', JSON.stringify(recentDocs.value))
+  } catch (error) {
+    console.error('保存历史记录失败:', error)
+  }
+}
+
+// 从历史记录中删除
+const removeFromHistory = (id) => {
+  recentDocs.value = recentDocs.value.filter(d => d.id !== id)
+  localStorage.setItem('onlyoffice_recent_docs', JSON.stringify(recentDocs.value))
+  ElMessage.success('已删除')
+}
+
+// 清空历史记录
+const clearHistory = () => {
+  ElMessageBox.confirm('确定要清空所有历史记录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    recentDocs.value = []
+    localStorage.removeItem('onlyoffice_recent_docs')
+    ElMessage.success('已清空历史记录')
+  }).catch(() => {})
+}
+
+// 格式化时间
+const formatTime = (time) => {
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now - date
+  
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
+  if (diff < 604800000) return Math.floor(diff / 86400000) + '天前'
+  
+  return date.toLocaleDateString()
+}
+
+// 获取文档类型标签
+const getDocTypeLabel = (type) => {
+  const labels = {
+    word: 'Word',
+    cell: 'Excel',
+    slide: 'PPT'
+  }
+  return labels[type] || '文档'
+}
+
+// 获取文档图标
+const getDocIcon = (type) => {
+  const icons = {
+    word: Document,
+    cell: Grid,
+    slide: Monitor
+  }
+  return icons[type] || Document
+}
+
+// 获取文档颜色
+const getDocColor = (type) => {
+  const colors = {
+    word: '#409EFF',
+    cell: '#67C23A',
+    slide: '#E6A23C'
+  }
+  return colors[type] || '#909399'
+}
+
+// 返回首页
+const backToHome = () => {
+  currentTab.value = 'home'
+  currentDocTitle.value = ''
+  const editorDiv = document.getElementById('onlyoffice-editor')
+  if (editorDiv) {
+    editorDiv.innerHTML = ''
+  }
+}
+
+// 打开文档
+const openDocument = (doc) => {
+  const config = {
+    document: {
+      fileType: doc.type === 'word' ? 'docx' : doc.type === 'cell' ? 'xlsx' : 'pptx',
+      key: `history-${Date.now()}`,
+      title: doc.title,
+      url: doc.url,
+      permissions: {
+        edit: true,
+        download: true,
+        print: true
+      }
+    },
+    documentType: doc.type,
+    editorConfig: {
+      lang: 'zh-CN',
+      mode: 'edit',
+      user: { id: '1', name: '教师' }
+    }
+  }
+  
+  currentDocTitle.value = doc.title
+  currentTab.value = 'editor'
+  createEditor(config)
+}
+
+const testConnection = async () => {
+  try {
+    const response = await fetch(serverConfig.value.url + '/welcome/', {
+      method: 'GET',
+      mode: 'no-cors'
+    })
+    connectionStatus.value = 'connected'
+    connectionText.value = '已连接'
+  } catch (error) {
+    connectionStatus.value = 'disconnected'
+    connectionText.value = '未连接'
+  }
+}
+
+const createEditor = (config) => {
+  const editorDiv = document.getElementById('onlyoffice-editor')
+  if (!editorDiv) return
+  
+  editorDiv.innerHTML = ''
+  
+  if (!window.DocsAPI) {
+    const script = document.createElement('script')
+    script.src = serverConfig.value.url + '/web-apps/apps/api/documents/api.js'
+    script.onload = () => initEditor(config)
+    script.onerror = () => {
+      ElMessage.error('无法加载编辑器，请检查 OnlyOffice 服务')
+      backToHome()
+    }
+    document.head.appendChild(script)
+  } else {
+    initEditor(config)
+  }
+}
+
+const initEditor = (config) => {
+  try {
+    config.editorConfig.customization = {
+      ...config.editorConfig.customization,
+      uiTheme: 'theme-dark',
+      chat: false,
+      comments: true,
+      compactHeader: false,
+      compactToolbar: false,
+      help: false,
+      hideRightMenu: false,
+      toolbar: true,
+      autosave: true,
+      forcesave: true
+    }
+    
+    new window.DocsAPI.DocEditor('onlyoffice-editor', config)
+    ElMessage.success('编辑器加载成功')
+  } catch (e) {
+    ElMessage.error('编辑器初始化失败')
+    backToHome()
+  }
+}
+
+const createDoc = (type) => {
+  const typeConfig = {
+    word: { fileName: '新建文档.docx', docType: 'word', fileType: 'docx' },
+    excel: { fileName: '新建表格.xlsx', docType: 'cell', fileType: 'xlsx' },
+    powerpoint: { fileName: '新建演示.pptx', docType: 'slide', fileType: 'pptx' }
+  }
+  
+  const cfg = typeConfig[type]
+  
+  // 使用示例文档作为模板创建新文档
+  const templateUrl = sampleDocs[type]
+  
+  const config = {
+    document: {
+      fileType: cfg.fileType,
+      key: `new-${Date.now()}`,
+      title: cfg.fileName,
+      url: templateUrl,
+      permissions: {
+        edit: true,
+        download: true,
+        print: true,
+        comment: true
+      }
+    },
+    documentType: cfg.docType,
+    editorConfig: {
+      lang: 'zh-CN',
+      mode: 'edit',
+      user: { id: '1', name: '教师' }
+    }
+  }
+  
+  currentDocTitle.value = cfg.fileName
+  currentTab.value = 'editor'
+  
+  // 保存到历史记录
+  saveToHistory({
+    title: cfg.fileName,
+    url: templateUrl,
+    type: cfg.docType
+  })
+  
+  createEditor(config)
+}
+
+const loadSample = (type) => {
+  const typeConfig = {
+    word: { fileType: 'docx', title: 'Java程序设计A卷.docx', docType: 'word', url: sampleDocs.word },
+    excel: { fileType: 'xlsx', title: '示例表格.xlsx', docType: 'cell', url: sampleDocs.excel },
+    ppt: { fileType: 'pptx', title: 'Java课件.pptx', docType: 'slide', url: sampleDocs.ppt }
+  }
+  
+  const cfg = typeConfig[type]
+  const config = {
+    document: {
+      fileType: cfg.fileType,
+      key: `sample-${Date.now()}`,
+      title: cfg.title,
+      url: cfg.url,
+      permissions: {
+        edit: true,
+        download: true,
+        print: true
+      }
+    },
+    documentType: cfg.docType,
+    editorConfig: {
+      lang: 'zh-CN',
+      mode: 'edit',
+      user: { id: '1', name: '教师' }
+    }
+  }
+  
+  currentDocTitle.value = cfg.title
+  currentTab.value = 'editor'
+  
+  // 保存到历史记录
+  saveToHistory({
+    title: cfg.title,
+    url: cfg.url,
+    type: cfg.docType
+  })
+  
+  createEditor(config)
+}
+
+// 从URL参数加载文件并打开编辑器
+const loadFromUrl = () => {
+  const fileUrl = route.query.fileUrl
+  const fileName = route.query.fileName
+  
+  if (fileUrl && fileName) {
+    const ext = fileName.split('.').pop().toLowerCase()
+    let docType, fileType
+    
+    if (ext === 'docx' || ext === 'doc') {
+      docType = 'word'
+      fileType = 'docx'
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      docType = 'cell'
+      fileType = 'xlsx'
+    } else if (ext === 'pptx' || ext === 'ppt') {
+      docType = 'slide'
+      fileType = 'pptx'
+    } else {
+      ElMessage.error('不支持的文件类型')
+      return
+    }
+    
+    const config = {
+      document: {
+        fileType: fileType,
+        key: `edit-${Date.now()}`,
+        title: fileName,
+        url: fileUrl,
+        permissions: {
+          edit: true,
+          download: true,
+          print: true
+        }
+      },
+      documentType: docType,
+      editorConfig: {
+        lang: 'zh-CN',
+        mode: 'edit',
+        user: { id: '1', name: '教师' }
+      }
+    }
+    
+    currentDocTitle.value = fileName
+    currentTab.value = 'editor'
+    
+    // 保存到历史记录
+    saveToHistory({
+      title: fileName,
+      url: fileUrl,
+      type: docType
+    })
+    
+    ElMessage.success('正在加载文档...')
+    createEditor(config)
+  }
+}
+
+onMounted(() => {
+  testConnection()
+  loadHistory()
+  
+  // 检查是否有URL参数
+  setTimeout(() => {
+    loadFromUrl()
+  }, 500)
+})
+</script>
+
+<style scoped>
+.preparation-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+const connectionText = ref('检测中...')
+const editorLoaded = ref(false)
+
+const serverConfig = ref({
+  url: 'http://127.0.0.1:8081'
+})
+
+const sampleDocs = {
+  word: 'http://120.26.212.210/resources/testpaper/Java程序设计A卷.docx',
+  excel: 'https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-xlsx-file-for-testing.xlsx',
+  ppt: 'http://120.26.212.210/resources/ppt/Java程序设计课件.pptx'
+}
+
+const testConnection = async () => {
+  try {
+    const response = await fetch(serverConfig.value.url + '/welcome/', {
+      method: 'GET',
+      mode: 'no-cors'
+    })
+    connectionStatus.value = 'connected'
+    connectionText.value = '已连接'
+  } catch (error) {
+    connectionStatus.value = 'disconnected'
+    connectionText.value = '未连接'
+    ElMessage.warning('OnlyOffice 服务未启动，请先启动 Docker 容器')
+  }
+}
+
+const createEditor = (config) => {
+  const editorDiv = document.getElementById('onlyoffice-editor')
+  if (!editorDiv) return
+  
+  editorDiv.innerHTML = ''
+  editorLoaded.value = false
+  
+  if (!window.DocsAPI) {
+    const script = document.createElement('script')
+    script.src = serverConfig.value.url + '/web-apps/apps/api/documents/api.js'
+    script.onload = () => initEditor(config)
+    script.onerror = () => {
+      ElMessage.error('无法加载编辑器，请检查 OnlyOffice 服务')
+      editorLoaded.value = false
+    }
+    document.head.appendChild(script)
+  } else {
+    initEditor(config)
+  }
+}
+
+const initEditor = (config) => {
+  try {
+    config.editorConfig.customization = {
+      ...config.editorConfig.customization,
+      uiTheme: 'theme-dark',
+      chat: false,
+      comments: true,
+      compactHeader: false,
+      compactToolbar: false,
+      help: false,
+      hideRightMenu: false,
+      toolbar: true,
+      autosave: true,
+      forcesave: true
+    }
+    
+    new window.DocsAPI.DocEditor('onlyoffice-editor', config)
+    editorLoaded.value = true
+    controlsVisible.value = false
+    ElMessage.success('编辑器加载成功')
+  } catch (e) {
+    ElMessage.error('编辑器初始化失败')
+    editorLoaded.value = false
+  }
+}
+
+const createDoc = (type) => {
+  const typeConfig = {
+    word: { fileName: '新建文档.docx', docType: 'word', fileType: 'docx' },
+    excel: { fileName: '新建表格.xlsx', docType: 'cell', fileType: 'xlsx' },
+    powerpoint: { fileName: '新建演示.pptx', docType: 'slide', fileType: 'pptx' }
+  }
+  
+  const cfg = typeConfig[type]
+  
+  // 不创建后端文件，直接使用OnlyOffice的新建功能
+  const config = {
+    document: {
+      fileType: cfg.fileType,
+      key: `new-${Date.now()}`,
+      title: cfg.fileName,
+      permissions: {
+        edit: true,
+        download: true,
+        print: true,
+        comment: true
+      }
+    },
+    documentType: cfg.docType,
+    editorConfig: {
+      lang: 'zh-CN',
+      mode: 'edit',
+      user: { id: '1', name: '教师' },
+      customization: {
+        autosave: false,
+        forcesave: false
+      }
+    }
+  }
+  
+  ElMessage.success('正在创建文档...')
+  createEditor(config)
+}
+
+const loadSample = (type) => {
+  const typeConfig = {
+    word: { fileType: 'docx', title: 'Java程序设计A卷.docx', docType: 'word', url: sampleDocs.word },
+    excel: { fileType: 'xlsx', title: '示例表格.xlsx', docType: 'cell', url: sampleDocs.excel },
+    ppt: { fileType: 'pptx', title: 'Java课件.pptx', docType: 'slide', url: sampleDocs.ppt }
+  }
+  
+  const cfg = typeConfig[type]
+  const config = {
+    document: {
+      fileType: cfg.fileType,
+      key: `sample-${Date.now()}`,
+      title: cfg.title,
+      url: cfg.url
+    },
+    documentType: cfg.docType,
+    editorConfig: {
+      callbackUrl: serverConfig.value.url + '/cache',
+      lang: 'zh-CN',
+      mode: 'edit',
+      user: { id: '1', name: '教师' }
+    }
+  }
+  
+  createEditor(config)
+}
+
+// 从URL参数加载文件并打开编辑器
+const loadFromUrl = () => {
+  const fileUrl = route.query.fileUrl
+  const fileName = route.query.fileName
+  
+  if (fileUrl && fileName) {
+    // 根据文件扩展名确定文档类型
+    const ext = fileName.split('.').pop().toLowerCase()
+    let docType, fileType
+    
+    if (ext === 'docx' || ext === 'doc') {
+      docType = 'word'
+      fileType = 'docx'
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      docType = 'cell'
+      fileType = 'xlsx'
+    } else if (ext === 'pptx' || ext === 'ppt') {
+      docType = 'slide'
+      fileType = 'pptx'
+    } else {
+      ElMessage.error('不支持的文件类型')
+      return
+    }
+    
+    const config = {
+      document: {
+        fileType: fileType,
+        key: `edit-${Date.now()}`,
+        title: fileName,
+        url: fileUrl,
+        permissions: {
+          edit: true,
+          download: true,
+          print: true
+        }
+      },
+      documentType: docType,
+      editorConfig: {
+        lang: 'zh-CN',
+        mode: 'edit',
+        user: { id: '1', name: '教师' }
+      }
+    }
+    
+    ElMessage.success('正在加载文档...')
+    createEditor(config)
+  }
+}
+
+onMounted(() => {
+  testConnection()
+  // 检查是否有URL参数，如果有则自动加载文件
+  setTimeout(() => {
+    loadFromUrl()
+  }, 1000)
+})
+</script>
+
+<style scoped>
+/* 编辑器视图 */
+.editor-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-header {
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.doc-title {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.connection-badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.connection-badge.connected {
+  background: rgba(158, 206, 106, 0.15);
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}
+
+.connection-badge.disconnected {
+  background: rgba(247, 118, 142, 0.15);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red);
+}
+
+.editor-wrapper {
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* 首页视图 */
+.home-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-header {
+  padding: 24px 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.home-header h2 {
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-header .el-icon {
+  color: var(--accent-cyan);
+}
+
+/* 快速操作卡片 */
+.quick-actions-card {
+  margin-bottom: 24px;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-float);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quick-item:hover {
+  background: var(--bg-highlight);
+  border-color: var(--accent-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(125, 207, 255, 0.2);
+}
+
+.quick-item span {
+  margin-top: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 最近编辑卡片 */
+.recent-card {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.empty-state p {
+  margin-top: 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.doc-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-float);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.doc-card:hover {
+  background: var(--bg-highlight);
+  border-color: var(--accent-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(125, 207, 255, 0.2);
+}
+
+.doc-card:hover .delete-btn {
+  opacity: 1;
+}
+
+.doc-icon {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-radius: 8px;
+}
+
+.doc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-name {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.doc-type {
+  padding: 2px 8px;
+  background: var(--bg-highlight);
+  color: var(--accent-purple);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.doc-time {
+  color: var(--text-muted);
+}
+
+.delete-btn {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+:deep(.el-card__header) {
+  background: var(--bg-float);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+}
+
+:deep(.el-card__body) {
+  padding: 20px;
+}
+
+:deep(.el-empty__description p) {
+  color: var(--text-muted);
+}
+</style>

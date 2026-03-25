@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.zjut.back.mapper.ExperimentProblemSubmissionMapper">
+
+    <resultMap id="ExperimentProblemSubmissionResultMap" type="cn.edu.zjut.back.entity.ExperimentProblemSubmission">
+        <id property="id" column="id"/>
+        <result property="experimentId" column="experiment_id"/>
+        <result property="problemId" column="problem_id"/>
+        <result property="studentId" column="student_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="code" column="code"/>
+        <result property="language" column="language"/>
+        <result property="status" column="status"/>
+        <result property="passRate" column="pass_rate"/>
+        <result property="output" column="output"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="submitTime" column="submit_time"/>
+        <result property="executeTime" column="execute_time"/>
+    </resultMap>
+
+    <select id="findByExperimentIdAndStudentId" resultMap="ExperimentProblemSubmissionResultMap">
+        SELECT * FROM tb_experiment_problem_submission
+        WHERE experiment_id = #{experimentId} AND student_id = #{studentId}
+        ORDER BY submit_time DESC
+    </select>
+
+    <select id="findByExperimentId" resultMap="ExperimentProblemSubmissionResultMap">
+        SELECT * FROM tb_experiment_problem_submission
+        WHERE experiment_id = #{experimentId}
+        ORDER BY submit_time DESC
+    </select>
+
+    <select id="findLatestByProblemAndStudent" resultMap="ExperimentProblemSubmissionResultMap">
+        SELECT * FROM tb_experiment_problem_submission
+        WHERE problem_id = #{problemId} AND student_id = #{studentId}
+        ORDER BY submit_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByProblemIdAndStudentId" resultMap="ExperimentProblemSubmissionResultMap">
+        SELECT * FROM tb_experiment_problem_submission
+        WHERE problem_id = #{problemId} AND student_id = #{studentId}
+        ORDER BY submit_time DESC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_experiment_problem_submission (
+            experiment_id, problem_id, student_id, student_name,
+            code, language, status, pass_rate, output, error_message,
+            submit_time, execute_time
+        ) VALUES (
+            #{experimentId}, #{problemId}, #{studentId}, #{studentName},
+            #{code}, #{language}, #{status}, #{passRate}, #{output}, #{errorMessage},
+            #{submitTime}, #{executeTime}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE tb_experiment_problem_submission
+        SET code = #{code},
+            language = #{language},
+            status = #{status},
+            pass_rate = #{passRate},
+            output = #{output},
+            error_message = #{errorMessage},
+            submit_time = #{submitTime},
+            execute_time = #{executeTime}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

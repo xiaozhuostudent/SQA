@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: yali-redis-exporter
+    restart: always
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "120.26.212.210:6379"
+      REDIS_PASSWORD: "@Yali123456"
+    networks:
+      - yali-monitor
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: yali-prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - yali-monitor
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: yali-grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - yali-monitor
+    depends_on:
+      - prometheus
+
+networks:
+  yali-monitor:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
