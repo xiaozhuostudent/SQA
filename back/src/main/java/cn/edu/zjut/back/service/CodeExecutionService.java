@@ -8,9 +8,12 @@ import cn.edu.zjut.back.entity.User;
 import cn.edu.zjut.back.mapper.ExperimentMapper;
 import cn.edu.zjut.back.mapper.ExperimentProblemMapper;
 import cn.edu.zjut.back.mapper.ExperimentProblemSubmissionMapper;
+import cn.edu.zjut.back.mapper.ProblemSampleMapper;
 import cn.edu.zjut.back.mapper.UserMapper;
+import cn.edu.zjut.back.entity.ProblemSample;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -25,24 +28,39 @@ public class CodeExecutionService {
     private final ExperimentProblemMapper problemMapper;
     private final ExperimentMapper experimentMapper;
     private final UserMapper userMapper;
+    private final ProblemSampleMapper problemSampleMapper;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-
-    private static final String PISTON_API = "https://emkc.org/api/v2/piston/execute";
+    private final String pistonExecuteApi;
 
     public CodeExecutionService(
             ExperimentProblemSubmissionMapper submissionMapper,
             ExperimentProblemMapper problemMapper,
             ExperimentMapper experimentMapper,
             UserMapper userMapper,
+            ProblemSampleMapper problemSampleMapper,
             RestTemplate restTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${piston.api.url:http://localhost:5053/api/v2/piston}") String pistonApiBase) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.experimentMapper = experimentMapper;
         this.userMapper = userMapper;
+        this.problemSampleMapper = problemSampleMapper;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.pistonExecuteApi = normalizePistonExecuteApi(pistonApiBase);
+    }
+
+    private String normalizePistonExecuteApi(String pistonApiBase) {
+        String base = pistonApiBase == null ? "" : pistonApiBase.trim();
+        if (base.endsWith("/execute")) {
+            return base;
+        }
+        if (base.endsWith("/")) {
+            return base + "execute";
+        }
+        return base + "/execute";
     }
 
     /**
@@ -104,8 +122,8 @@ public class CodeExecutionService {
             // 执行代码
             Map<String, Object> executionResult = executeCode(code, language);
             
-            // 解析测试样例
-            List<Map<String, String>> samples = parseSamples(problem.getSamples());
+            // 解析测试样例：优先从样例表读取，兼容旧的 JSON 字段兜底
+            List<Map<String, String>> samples = loadSamples(problem);
             
             // 运行测试
             int passedCount = 0;
@@ -292,7 +310,7 @@ public class CodeExecutionService {
                     Map.of("content", code)
             ));
 
-            String response = restTemplate.postForObject(PISTON_API, requestBody, String.class);
+            String response = restTemplate.postForObject(pistonExecuteApi, requestBody, String.class);
             JsonNode jsonNode = objectMapper.readTree(response);
 
             Map<String, Object> result = new HashMap<>();
@@ -321,7 +339,7 @@ public class CodeExecutionService {
             ));
             requestBody.put("stdin", input);
 
-            String response = restTemplate.postForObject(PISTON_API, requestBody, String.class);
+            String response = restTemplate.postForObject(pistonExecuteApi, requestBody, String.class);
             JsonNode jsonNode = objectMapper.readTree(response);
 
             Map<String, Object> result = new HashMap<>();
@@ -378,6 +396,33 @@ public class CodeExecutionService {
         } catch (Exception e) {
             return new ArrayList<>();
         }
+    }
+
+    private List<Map<String, String>> loadSamples(ExperimentProblem problem) {
+        List<Map<String, String>> samples = new ArrayList<>();
+        if (problem == null || problem.getId() == null) {
+            return samples;
+        }
+
+        try {
+            List<ProblemSample> sampleEntities = problemSampleMapper.findByProblemId(problem.getId());
+            if (sampleEntities != null) {
+                for (ProblemSample sampleEntity : sampleEntities) {
+                    Map<String, String> sample = new HashMap<>();
+                    sample.put("input", sampleEntity.getInput() == null ? "" : sampleEntity.getInput());
+                    sample.put("output", sampleEntity.getOutput() == null ? "" : sampleEntity.getOutput());
+                    samples.add(sample);
+                }
+            }
+        } catch (Exception e) {
+            // 兼容旧逻辑：样例表读取失败时继续尝试 JSON 字段
+        }
+
+        if (samples.isEmpty()) {
+            samples = parseSamples(problem.getSamples());
+        }
+
+        return samples;
     }
 
     /**

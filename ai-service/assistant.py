@@ -37,15 +37,15 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 CORS(app)
 
 # 配置
-API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+API_KEY = os.getenv("DASHSCOPE_API_KEY", "sk-cc859963a4c2462ea6bf822147df4bb0")
 MODEL_NAME = "qwen-plus"
 
 # 数据库配置
 DB_CONFIG = {
-    'host': '120.26.212.210',
+    'host': '47.96.254.64',
     'port': 3306,
-    'user': 'javaee',
-    'password': '@Yali123456',
+    'user': 'cuigu',
+    'password': 'cuiguzjuter',
     'database': 'javaee',
     'charset': 'utf8mb4'
 }

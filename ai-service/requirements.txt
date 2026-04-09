@@ -8,3 +8,4 @@ deep_translator
 pymysql
 chromadb
 sentence-transformers
+pillow

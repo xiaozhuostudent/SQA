@@ -255,7 +255,6 @@ def docker_start(compose_cmd):
     print_color("\n[3/3] 检查服务状态...", Colors.YELLOW)
 
     services = [
-        ("Redis缓存服务", "http://localhost:6379", 6379, "TCP"),  # Redis 使用 TCP 连接检查
         ("后端服务", "http://localhost:8080/course/all", 8080, "HTTP"),
         ("前端服务", "http://localhost:3001", 3001, "HTTP"),
         ("AI服务", "http://localhost:5051", 5051, "HTTP"),

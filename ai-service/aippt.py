@@ -225,14 +225,7 @@ class AIPPT():
         else:
             print('创建PPT任务失败')
             return None
-
-
-
-
-
-
-
-
+        
 # -*- coding:utf-8 -*-
 import hashlib
 import hmac

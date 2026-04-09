@@ -282,6 +282,30 @@ const activeCategory = ref('all')
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+const getBackendOrigin = () => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL
+  if (apiBase && /^https?:\/\//i.test(apiBase)) {
+    try {
+      return new URL(apiBase).origin
+    } catch (error) {
+      console.warn('VITE_API_BASE_URL 解析失败，回退到默认后端地址:', error)
+    }
+  }
+  return `${window.location.protocol}//${window.location.hostname}:8080`
+}
+
+const BACKEND_ORIGIN = getBackendOrigin()
+
+const normalizeResourceAccessUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('/')) {
+    return `${BACKEND_ORIGIN}${url}`
+  }
+  return url
+    .replace(/^https?:\/\/(localhost|127\.0\.0\.1):8080/i, BACKEND_ORIGIN)
+    .replace(/^https?:\/\/120\.26\.212\.210(?::\d+)?/i, BACKEND_ORIGIN)
+}
+
 // 预览相关
 const previewVisible = ref(false)
 const previewUrl = ref('')
@@ -401,7 +425,7 @@ const toggleFullscreen = () => {
 
 const handleDownload = (resource) => {
   if (resource.fileUrl) {
-    window.open(resource.fileUrl, '_blank')
+    window.open(normalizeResourceAccessUrl(resource.fileUrl), '_blank')
   } else {
     ElMessage.warning('该资源没有可下载的文件')
   }
@@ -418,6 +442,8 @@ const loadResources = async () => {
     
     resources.value = res.data.map(item => ({
       ...item,
+      fileUrl: normalizeResourceAccessUrl(item.fileUrl),
+      previewUrl: normalizeResourceAccessUrl(item.previewUrl),
       size: formatFileSize(item.fileSize),
       uploadTime: item.createTime
     }))
@@ -522,17 +548,16 @@ const previewResource = (resource) => {
   if (['mp4', 'webm', 'ogg'].includes(ext)) {
     // 视频预览
     previewType.value = 'video'
-    previewUrl.value = resource.fileUrl
+    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (['docx', 'pptx'].includes(ext)) {
-    // DOCX和PPTX：使用previewUrl字段的PDF文件
+    // DOCX和PPTX：仅使用PDF地址做iframe预览
     previewType.value = 'pdf'
-    if (resource.previewUrl) {
-      previewUrl.value = resource.previewUrl
-    } else {
-      previewUrl.value = resource.fileUrl.replace(/\.(docx|pptx)$/i, '.pdf')
-    }
+    const previewCandidate = /\.pdf([?#].*)?$/i.test(resource.previewUrl || '')
+      ? resource.previewUrl
+      : resource.fileUrl.replace(/\.(docx|pptx)$/i, '.pdf')
+    previewUrl.value = normalizeResourceAccessUrl(previewCandidate)
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (ext === 'xlsx') {
@@ -541,13 +566,13 @@ const previewResource = (resource) => {
   } else if (ext === 'pdf') {
     // PDF直接预览
     previewType.value = 'pdf'
-    previewUrl.value = resource.fileUrl
+    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(ext)) {
     // 图片预览
     previewType.value = 'image'
-    previewUrl.value = resource.fileUrl
+    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
     previewTitle.value = resource.name
     previewVisible.value = true
   }

@@ -15,6 +15,7 @@ NC='\033[0m' # No Color - 重置所有颜色属性，恢复终端默认颜色
 
 cd $(dirname "$0")
 PROJECT_DIR=$(pwd)
+mkdir -p "$PROJECT_DIR/logs"
 
 echo -e "${BLUE}🚀 JavaEE课程管理系统 - 一键启动${NC}"
 echo "=================================="
@@ -23,6 +24,11 @@ echo ""
 # 启动Docker服务
 start_docker_services() {
     echo -e "${BLUE}🐳 启动Docker服务...${NC}"
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Docker未运行，跳过Docker服务启动${NC}"
+        echo ""
+        return 0
+    fi
     
     # 启动SRS直播服务
     if [ -f "docker/docker-compose-srs.yml" ]; then
@@ -33,21 +39,7 @@ start_docker_services() {
         echo -e "${GREEN}✅ SRS直播服务已启动${NC}"
     fi
     
-    # 启动Grafana监控栈
-    if [ -f "docker-compose.monitor.yml" ]; then
-        echo -e "${YELLOW}启动Grafana监控栈...${NC}"
-        docker-compose -f docker-compose.monitor.yml up -d
-        echo -e "${GREEN}✅ Grafana监控已启动: http://localhost:3000 (admin/admin)${NC}"
-    fi
     
-    # 启动OnlyOffice文档服务
-    if [ -f "docker/onlyoffice-docker-compose.yaml" ]; then
-        echo -e "${YELLOW}启动OnlyOffice文档服务...${NC}"
-        cd docker
-        docker-compose -f onlyoffice-docker-compose.yaml up -d
-        cd ..
-        echo -e "${GREEN}✅ OnlyOffice已启动: http://localhost:8081${NC}"
-    fi
     
     echo ""
 }
@@ -87,13 +79,31 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
 export NO_PROXY="localhost,127.0.0.1"
 echo -e "${GREEN}✅ 代理已关闭${NC}"
 
-# 清除Redis缓存
-echo ""
-echo -e "${YELLOW}[0.5/7] 清除服务器Redis缓存...${NC}"
-echo -e "${CYAN}🗑️  清理Redis缓存以确保数据最新...${NC}"
-redis-cli -h 120.26.212.210 -p 6379 -a '@Yali123456' FLUSHALL 2>/dev/null && \
-    echo -e "${GREEN}✅ Redis缓存已清除${NC}" || \
-    echo -e "${YELLOW}⚠️  Redis缓存清除失败或跳过${NC}"
+# 选择AI服务使用的Python解释器，避免误回退到系统Python
+AI_PYTHON_BIN=""
+pick_ai_python() {
+    local candidates=(
+        "$PROJECT_DIR/venv/bin/python3"
+        "$PROJECT_DIR/.venv/bin/python3"
+        "$(command -v python3 2>/dev/null || true)"
+    )
+
+    for candidate in "${candidates[@]}"; do
+        if [ -x "$candidate" ] && "$candidate" -c "import dashscope, pymysql, flask, flask_cors, requests, openai" >/dev/null 2>&1; then
+            AI_PYTHON_BIN="$candidate"
+            return 0
+        fi
+    done
+
+    for candidate in "${candidates[@]}"; do
+        if [ -x "$candidate" ]; then
+            AI_PYTHON_BIN="$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 # 1. 启动SRS流媒体服务器 (Docker)
 echo ""
@@ -127,21 +137,9 @@ echo -e "${GREEN}✅ 所有端口清理完成${NC}"
 # 2.5. 启动Docker服务
 start_docker_services
 
-# 3. 检查MySQL连接
+# 3. MySQL连接检查（当前服务器关闭，跳过）
 echo ""
-echo -e "${YELLOW}[3/7] 验证远程MySQL连接...${NC}"
-echo -e "${CYAN}   服务器: 120.26.212.210:3306"
-echo "   数据库: javaee"
-echo "   用户: javaee${NC}"
-if command -v mysql >/dev/null 2>&1; then
-    if mysql -h 120.26.212.210 -P 3306 -ujavaee -p'@Yali123456' -e "USE javaee; SELECT 1;" >/dev/null 2>&1; then
-        echo -e "${GREEN}✅ MySQL连接成功${NC}"
-    else
-        echo -e "${YELLOW}⚠️  MySQL连接验证失败，但继续启动（后端将自行重试）${NC}"
-    fi
-else
-    echo -e "${GREEN}✅ 使用远程MySQL (跳过本地验证)${NC}"
-fi
+echo -e "${YELLOW}[3/7] 跳过MySQL连接检查（服务器关闭）...${NC}"
 
 # 4. 启动后端
 echo ""
@@ -219,57 +217,33 @@ fi
 
 cd "$PROJECT_DIR"
 
-# 虚拟环境检测函数
-detect_and_activate_venv() {
-    local venv_path=""
-    local possible_venv_dirs=("venv" ".venv" "env" ".env" "virtualenv")
-    
-    # 在项目根目录查找虚拟环境
-    cd "$PROJECT_DIR"
-    
-    for venv_dir in "${possible_venv_dirs[@]}"; do
-        if [ -d "$venv_dir" ] && [ -f "$venv_dir/bin/activate" ]; then
-            venv_path="$venv_dir"
-            echo -e "${GREEN}✅ 发现虚拟环境: $venv_path${NC}"
-            break
-        fi
-    done
-    
-    if [ -n "$venv_path" ]; then
-        echo -e "${CYAN}🔧 激活虚拟环境...${NC}"
-        source "$PROJECT_DIR/$venv_path/bin/activate"
-        echo -e "${GREEN}✅ 虚拟环境激活完成${NC}"
-        echo -e "${GREEN}🎯 Python路径: $(which python)${NC}"
-        return 0
-    else
-        echo -e "${YELLOW}⚠️  未发现虚拟环境${NC}"
-        return 1
-    fi
-}
-
 # 依赖检查
 check_dependencies() {
     echo -e "${CYAN}🔍 检查Python依赖...${NC}"
-    
-    # 首先检测并激活虚拟环境
-    if detect_and_activate_venv; then
-        echo -e "${GREEN}🎯 在虚拟环境中检查依赖...${NC}"
-    else
-        echo -e "${YELLOW}ℹ️  在系统环境中检查依赖...${NC}"
+
+    if [ -z "$AI_PYTHON_BIN" ]; then
+        pick_ai_python || true
     fi
-    
+
+    if [ -n "$AI_PYTHON_BIN" ]; then
+        echo -e "${GREEN}✅ 选择Python解释器: $AI_PYTHON_BIN${NC}"
+    else
+        echo -e "${YELLOW}⚠️  未找到可用Python解释器，回退到系统环境${NC}"
+        AI_PYTHON_BIN="$(command -v python3)"
+    fi
+
     local required_packages=("flask" "flask_cors" "requests" "openai")
     local missing_packages=()
-    
+
     for package in "${required_packages[@]}"; do
-        if python3 -c "import $package" 2>/dev/null; then
+        if "$AI_PYTHON_BIN" -c "import $package" 2>/dev/null; then
             echo -e "  ✅ $package 已安装"
         else
             echo -e "  ❌ $package 未安装"
             missing_packages+=("$package")
         fi
     done
-    
+
     if [ ${#missing_packages[@]} -eq 0 ]; then
         echo -e "${GREEN}✅ 所有依赖已安装${NC}"
         return 0
@@ -302,16 +276,25 @@ fi
 # echo -e "${GREEN}✅ 主AI服务已启动 (PID: $AI_PID, 日志: logs/ai_service.log)${NC}"
 # sleep 2
 
-# 检测并激活虚拟环境
 cd "$PROJECT_DIR"
-detect_and_activate_venv
+if [ -z "$AI_PYTHON_BIN" ]; then
+    pick_ai_python || true
+fi
+
+echo -e "${GREEN}🎯 AI服务Python路径: ${AI_PYTHON_BIN:-$(command -v python3)}${NC}"
 
 echo -e "${CYAN}🤖 启动智能助手服务 (assistant.py)...${NC}"
 cd "$PROJECT_DIR/ai-service"
-nohup python3 assistant.py > "$PROJECT_DIR/logs/ai_assistant.log" 2>&1 &
+nohup "$AI_PYTHON_BIN" assistant.py > "$PROJECT_DIR/logs/ai_assistant.log" 2>&1 &
 ASSISTANT_PID=$!
 echo $ASSISTANT_PID > "$PROJECT_DIR/logs/ai_assistant.pid"
 echo -e "${GREEN}✅ 智能助手服务已启动 (PID: $ASSISTANT_PID, 日志: logs/ai_assistant.log)${NC}"
+
+echo -e "${CYAN}⚙️ 启动本地Piston兼容执行服务 (piston_compat.py)...${NC}"
+nohup "$AI_PYTHON_BIN" piston_compat.py > "$PROJECT_DIR/logs/piston_compat.log" 2>&1 &
+PISTON_PID=$!
+echo $PISTON_PID > "$PROJECT_DIR/logs/piston_compat.pid"
+echo -e "${GREEN}✅ 本地Piston兼容服务已启动 (PID: $PISTON_PID, 日志: logs/piston_compat.log)${NC}"
 
 # 等待智能助手服务启动
 echo -e "${YELLOW}⏳ 等待智能助手服务就绪...${NC}"
@@ -330,22 +313,39 @@ if [ "$ASSISTANT_READY" = false ]; then
     echo -e "${RED}❌ 智能助手启动超时，请检查日志: tail -f $PROJECT_DIR/logs/ai_assistant.log${NC}"
 fi
 
+# 等待本地Piston兼容执行服务启动
+echo -e "${YELLOW}⏳ 等待本地Piston兼容服务就绪...${NC}"
+PISTON_READY=false
+for i in {1..15}; do
+    if curl --max-time 5 -s http://localhost:5053/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ 本地Piston兼容服务就绪 (尝试 $i/15)${NC}"
+        PISTON_READY=true
+        break
+    fi
+    echo -e "${CYAN}   尝试 $i/15: Piston兼容服务启动中...${NC}"
+    sleep 1
+done
+
+if [ "$PISTON_READY" = false ]; then
+    echo -e "${RED}❌ 本地Piston兼容服务启动超时，请检查日志: tail -f $PROJECT_DIR/logs/piston_compat.log${NC}"
+fi
+
 cd "$PROJECT_DIR"
 
 # 7. Piston API检查
 echo ""
 echo -e "${YELLOW}[7/7] 检查Piston代码执行API...${NC}"
 if command -v jq >/dev/null 2>&1; then
-    PISTON_RESPONSE=$(curl -s --max-time 10 https://emkc.org/api/v2/piston/runtimes 2>/dev/null)
+    PISTON_RESPONSE=$(curl -s --max-time 10 http://localhost:5053/api/v2/piston/runtimes 2>/dev/null)
     if [ $? -eq 0 ] && [ ! -z "$PISTON_RESPONSE" ]; then
         PISTON_COUNT=$(echo "$PISTON_RESPONSE" | jq -r 'length' 2>/dev/null || echo "0")
         if [ "$PISTON_COUNT" -gt 0 ]; then
-            echo -e "${GREEN}✅ Piston API正常 (支持 $PISTON_COUNT 种语言)${NC}"
+            echo -e "${GREEN}✅ 本地Piston兼容API正常 (支持 $PISTON_COUNT 种语言)${NC}"
         else
-            echo -e "${YELLOW}⚠️  Piston API响应错误${NC}"
+            echo -e "${YELLOW}⚠️  本地Piston兼容API响应错误${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Piston API连接失败${NC}"
+        echo -e "${YELLOW}⚠️  本地Piston兼容API连接失败${NC}"
     fi
 else
     echo -e "${YELLOW}⚠️  jq命令未安装，跳过Piston API检查${NC}"
@@ -360,13 +360,6 @@ echo -e "${BLUE}📱 访问地址:${NC}"
 echo -e "   🌐 ${CYAN}前端: http://localhost:3001${NC}"
 echo -e "   🔌 ${CYAN}后端: http://localhost:8080/api${NC}"
 echo -e "   🤖 ${CYAN}智能助手: http://localhost:5052 (三端通用AI助手)${NC}"
-echo -e "   📊 ${CYAN}Redis监控: http://localhost:3001/#/admin/redis-monitor${NC}"
-if docker ps | grep -q yali-grafana; then
-    echo -e "   📈 ${CYAN}Grafana监控: http://localhost:3000 (admin/admin)${NC}"
-fi
-if docker ps | grep -q onlyoffice; then
-    echo -e "   📄 ${CYAN}OnlyOffice: http://localhost:8081${NC}"
-fi
 echo ""
 echo -e "${BLUE}直播功能:${NC}"
 echo -e "   🎥 ${CYAN}直播管理(教师端): http://localhost:3001#/teacher/livestream${NC}"
@@ -395,28 +388,30 @@ echo -e "   4. ${CYAN}选择语言: Python/Java/C++/C 等87种${NC}"
 echo -e "   5. ${CYAN}编写代码 → 点击运行 → 查看结果${NC}"
 echo ""
 echo -e "${BLUE}📊 服务状态:${NC}"
-echo -n "   MySQL:  "
-echo -e "${GREEN}远程连接 (120.26.212.210:3306)${NC}"
 echo -n "   后端:   "
 if lsof -i:8080 > /dev/null 2>&1; then echo -e "${GREEN}运行中${NC}"; else echo -e "${RED}未运行${NC}"; fi
 echo -n "   前端:   "
 if lsof -i:3001 > /dev/null 2>&1; then echo -e "${GREEN}运行中${NC}"; else echo -e "${RED}未运行${NC}"; fi
 echo -n "   智能助手: "
 if lsof -i:5052 > /dev/null 2>&1; then echo -e "${GREEN}运行中 (端口5052)${NC}"; else echo -e "${RED}未运行${NC}"; fi
+echo -n "   代码执行: "
+if lsof -i:5053 > /dev/null 2>&1; then echo -e "${GREEN}运行中 (端口5053)${NC}"; else echo -e "${RED}未运行${NC}"; fi
 echo ""
 echo -e "${BLUE}📝 日志文件:${NC}"
 echo -e "   ${CYAN}后端日志: tail -f $PROJECT_DIR/logs/backend.log${NC}"
 echo -e "   ${CYAN}前端日志: tail -f $PROJECT_DIR/logs/frontend.log${NC}"
 echo -e "   ${CYAN}智能助手日志: tail -f $PROJECT_DIR/logs/ai_assistant.log${NC}"
+echo -e "   ${CYAN}Piston兼容服务日志: tail -f $PROJECT_DIR/logs/piston_compat.log${NC}"
 echo -e "   ${CYAN}SRS日志: docker logs -f yali-srs${NC}"
 echo ""
 echo -e "${BLUE}🛑 停止服务:${NC}"
 echo -e "   ${CYAN}一键停止所有: ./stop.sh${NC}"
-echo -e "   ${CYAN}手动停止应用: pkill -f 'spring-boot:run' && pkill -f 'vite' && pkill -f 'python3 assistant.py'${NC}"
-echo -e "   ${CYAN}停止Docker服务: cd docker && docker-compose -f docker-compose-srs.yml down && docker-compose -f grafana-compose.yml down && docker-compose -f onlyoffice-docker-compose.yaml down${NC}"
+echo -e "   ${CYAN}手动停止应用: pkill -f 'spring-boot:run' && pkill -f 'vite' && pkill -f 'python3 assistant.py' && pkill -f 'python3 piston_compat.py'${NC}"
+echo -e "   ${CYAN}停止Docker服务: cd docker && docker-compose -f docker-compose-srs.yml down${NC}"
 echo ""
 echo -e "${BLUE}🔧 进程PID文件:${NC}"
 echo -e "   ${CYAN}后端PID: $PROJECT_DIR/logs/backend.pid${NC}"
 echo -e "   ${CYAN}前端PID: $PROJECT_DIR/logs/frontend.pid${NC}"
 echo -e "   ${CYAN}智能助手PID: $PROJECT_DIR/logs/ai_assistant.pid${NC}"
+echo -e "   ${CYAN}Piston兼容服务PID: $PROJECT_DIR/logs/piston_compat.pid${NC}"
 echo ""
