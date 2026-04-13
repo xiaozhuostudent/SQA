@@ -40,7 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
 
         // 映射 source 目录（课程资源本地文件）
         registry.addResourceHandler("/source/**")
-                .addResourceLocations("file:./storage/resources/")
+                .addResourceLocations("file:./source/")
                 .setCachePeriod(604800);
     }
 
