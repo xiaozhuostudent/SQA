@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# 日志和临时文件
+logs/
+*.log
+*.pid
+
+# Node
+node_modules/
+npm-debug.log
+.npm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+!back/target/*.war
+
+# 数据文件
+*.db
+*.sqlite
+srs-data/
+
+# 其他
+.DS_Store
+*.swp
+*.swo
+*~
+onlyoffice/
