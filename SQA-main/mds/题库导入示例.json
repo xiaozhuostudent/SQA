@@ -1,0 +1,32 @@
+[
+  {
+    "courseId": 1,
+    "questionType": "single_choice",
+    "content": "（immutable）？",
+    "options": "A. list;B. dict;C. set;D. tuple",
+    "answer": "D",
+    "score": 5,
+    "difficulty": 1,
+    "explanation": "在Pyt元组）是不可变数据类型，一旦创建就不能修改其元素。而list、dict和set都是可变的数据类型。"
+  },
+  {
+    "courseId": 1,
+    "questionType": "multiple_choice",
+    "content": "关于or），以下说法正确的有哪些？",
+    "options": "A. 装饰器本质上是一个函数;B. 装饰器可以修改被装饰函数的行为;C. 一个函数可以被多个装饰器装饰;D. 装饰器只能用于函数，不能用于类",
+    "answer": "A,B,C",
+    "score": 10,
+    "difficulty": 2,
+    "explanation": "装饰器是Python中的高级特性。A正确：装饰器本质是一个接受函数作为参数并返回新函数的函数。B正确：装饰器可以在不修改原函数代码的情况下增强功能。C正确：可以使用多个@语法堆叠装饰器。D错误：装饰器也可以用于类。"
+  },
+  {
+    "courseId": 1,
+    "questionType": "true_false",
+    "content": "在Python中，使较两个字符串时，结果一定与使用==运算符的结果相同。",
+    "options": "",
+    "answer": "错",
+    "score": 5,
+    "difficulty": 2,
+    "explanation": "is运算符比较的是对象的内存地址（身份），而==比较的是对象的值。虽然Python对小整数和短字符串有缓存机制（字符串驻留），但对于动态生成的字符串，is和==的结果可能不同。例如：a='hello'; b='hel'+'lo'时，a==b为True，但a is b可能为False。"
+  }
+]

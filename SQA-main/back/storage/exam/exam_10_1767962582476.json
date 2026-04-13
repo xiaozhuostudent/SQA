@@ -1,0 +1,45 @@
+{
+  "publishTime" : "2026-01-09 20:43:02",
+  "shuffleOptions" : null,
+  "questions" : [ {
+    "difficulty" : "medium",
+    "score" : 10,
+    "answer" : "A,C",
+    "options" : "[\"A. NullPointerException\", \"B. IOException\", \"C. ClassCastException\", \"D. FileNotFoundException\"]",
+    "id" : 344,
+    "explanation" : "Nulion和ClassCastException属于RuntimeException（运行时异常/非受检异常）。IOException和FileNotFoundException属于Exception下的受检异常，必须被捕获或声明抛出。",
+    "questionType" : "multiple_choice",
+    "content" : "test在Java中，以下哪些属于运行时异常（RuntimeException）？",
+    "order" : 1
+  }, {
+    "difficulty" : "easy",
+    "score" : 5,
+    "answer" : "B",
+    "options" : "[\"A. 123var\", \"B. _myVar\", \"C. my-var\", \"D. class\"]",
+    "id" : 342,
+    "explanation" : "标识符不能以数字开头，不能包含`-`，不能是关键字。`_myVar`以下划线开头是合法的。",
+    "questionType" : "single_choice",
+    "content" : "testJava中，以下哪个是合法的标识符？",
+    "order" : 2
+  }, {
+    "difficulty" : "medium",
+    "score" : 5,
+    "answer" : "D",
+    "options" : "[\"A. final修饰的类不能被继承\", \"B. final修饰的方法不能被重写\", \"C. final修饰的变量是常量，只能在声明时初始化\", \"D. final修饰的局部变量在初始化后可以再次修改值\"]",
+    "id" : 343,
+    "explanation" : "final量，一旦被赋值（初始化）后，其值就不能再更改。",
+    "questionType" : "single_choice",
+    "content" : "test以下关于`final`关键字的说法，哪个是错误的？",
+    "order" : 3
+  } ],
+  "description" : "",
+  "title" : "444",
+  "totalScore" : 20,
+  "passScore" : 60,
+  "duration" : 120,
+  "courseName" : "Java程序设计",
+  "showAnswer" : null,
+  "shuffleQuestions" : null,
+  "courseId" : 1,
+  "paperId" : 10
+}

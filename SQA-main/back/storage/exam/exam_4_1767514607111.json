@@ -1,0 +1,45 @@
+{
+  "publishTime" : "2026-01-04 16:16:47",
+  "shuffleOptions" : null,
+  "questions" : [ {
+    "difficulty" : "easy",
+    "score" : 5,
+    "answer" : "B",
+    "options" : "[\"Console.print()\", \"System.out.print()\", \"Output.println()\", \"Print.write()\"]",
+    "id" : 1,
+    "explanation" : "System.out.print()是Java标准输出语句，用于向控制台输出信息",
+    "questionType" : "single_choice",
+    "content" : "Java 中用于输出信息到控制台的语句是：",
+    "order" : 1
+  }, {
+    "difficulty" : "easy",
+    "score" : 5,
+    "answer" : "D",
+    "options" : "[\"int\", \"float\", \"double\", \"String\"]",
+    "id" : 2,
+    "explanation" : "String是引用类型，不是基本数据类型。Java有8种基本数据类型：byte、short、int、long、float、double、char、boolean",
+    "questionType" : "single_choice",
+    "content" : "Java 中非基本数据类型的是：",
+    "order" : 2
+  }, {
+    "difficulty" : "easy",
+    "score" : 5,
+    "answer" : "C",
+    "options" : "[\".exe\", \".java\", \".class\", \".jar\"]",
+    "id" : 3,
+    "explanation" : "Java源文件(.java)编译后生成字节码文件(.class)",
+    "questionType" : "single_choice",
+    "content" : "Java 源文件编译后生成的文件扩展名是：",
+    "order" : 3
+  } ],
+  "description" : "",
+  "title" : "人脸测试",
+  "totalScore" : 15,
+  "passScore" : 60,
+  "duration" : 120,
+  "courseName" : "Java程序设计",
+  "showAnswer" : null,
+  "shuffleQuestions" : null,
+  "courseId" : 1,
+  "paperId" : 4
+}

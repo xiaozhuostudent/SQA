@@ -1,0 +1,1103 @@
+:root {
+  /* Tokyo Night 主题色板 - 优化对比度版本 */
+  --bg-primary: #1a1b26;
+  --bg-secondary: #1f2335;
+  --bg-float: #24283b;
+  --bg-highlight: #2f3549;
+  
+  --primary: #7aa2f7; /* Tokyo 蓝 */
+  --accent-cyan: #7dcfff; /* 霓虹青 */
+  --accent-purple: #bb9af7; /* 紫 */
+  --accent-red: #f7768e; /* 粉红 */
+  --accent-green: #9ece6a; /* 绿 */
+  --accent-orange: #ff9e64; /* 橙 */
+  
+  --text-primary: #e0e6ff;
+  --text-secondary: #c0caf5;
+  --text-muted: #6b7694;
+  --border: #3b4261;
+  
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.5);
+  --radius-lg: 12px;
+  --radius-md: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, pre, .code-font {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 通用容器 */
+.container-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glass-card {
+  background: var(--bg-float);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+}
+
+.btn-primary-cool {
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+  color: var(--bg-primary);
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 4px 16px rgba(122,162,247,0.4);
+  transition: all 0.3s ease;
+}
+
+.btn-primary-cool:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(122,162,247,0.6);
+}
+
+.muted { color: var(--text-muted); }
+
+/* 登录背景 */
+.bg-hero {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-svg {
+  position: absolute;
+  right: -5%;
+  top: 10%;
+  width: 60vmax;
+  opacity: 0.08;
+  filter: blur(1px);
+}
+
+/* Tokyo Night 卡片 */
+.tokyo-card {
+  background: var(--bg-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.tokyo-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Element Plus Tokyo Night 全局覆盖 */
+.el-button--primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+  border: none;
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+.el-button--primary:hover {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--primary));
+}
+
+.el-tag {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.el-tag--success {
+  background: rgba(158, 206, 106, 0.15);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.el-tag--warning {
+  background: rgba(255, 158, 100, 0.15);
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.el-tag--danger {
+  background: rgba(247, 118, 142, 0.15);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.el-tag--info {
+  background: rgba(86, 95, 137, 0.15);
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+.el-timeline-item__timestamp {
+  color: var(--text-muted);
+}
+
+.el-timeline-item__node {
+  background: var(--primary);
+}
+
+.el-divider {
+  border-color: var(--border);
+}
+
+.el-divider__text {
+  background: var(--bg-float);
+  color: var(--text-muted);
+}
+
+/* ===== 完整的 Element Plus 组件覆盖 ===== */
+
+/* Card */
+.el-card {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.el-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
+}
+
+.el-card__header {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.el-card__body {
+  background-color: var(--bg-float) !important;
+}
+
+/* Table */
+.el-table {
+  background-color: var(--bg-float) !important;
+  color: var(--text-primary);
+}
+
+.el-table tr {
+  background-color: var(--bg-float) !important;
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+  border-color: var(--border) !important;
+}
+
+.el-table td.el-table__cell {
+  border-color: var(--border) !important;
+  color: var(--text-primary);
+}
+
+.el-table__body tr:hover > td {
+  background-color: var(--bg-highlight) !important;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Dialog */
+.el-dialog {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.el-dialog__header {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.el-dialog__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.el-dialog__body {
+  background-color: var(--bg-float) !important;
+  color: var(--text-primary);
+}
+
+.el-dialog__close {
+  color: var(--text-secondary) !important;
+}
+
+/* Form & Input */
+.el-form-item__label {
+  color: var(--text-primary) !important;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.el-input__wrapper {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: var(--primary) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(125, 207, 255, 0.1) !important;
+}
+
+.el-input__inner {
+  color: var(--text-primary) !important;
+  background-color: transparent !important;
+  font-size: 15px;
+}
+
+.el-input__inner::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.el-textarea__inner {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.el-textarea__inner:hover {
+  border-color: var(--primary) !important;
+}
+
+.el-textarea__inner:focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(125, 207, 255, 0.1) !important;
+}
+
+/* InputNumber 加减按钮 */
+.el-input-number__decrease,
+.el-input-number__increase {
+  background-color: var(--bg-float) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.el-input-number__decrease:hover,
+.el-input-number__increase:hover {
+  background-color: var(--bg-highlight) !important;
+  color: var(--accent-cyan) !important;
+}
+
+.el-input-number__decrease:active,
+.el-input-number__increase:active {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Select & Dropdown - 深色背景 */
+/* Select 输入框本身 */
+.el-select__wrapper {
+  background-color: var(--bg-float) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
+}
+
+.el-select__wrapper:hover {
+  border-color: var(--primary) !important;
+}
+
+.el-select__wrapper.is-focused {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(125, 207, 255, 0.1) !important;
+}
+
+.el-select__selection {
+  color: var(--text-primary) !important;
+}
+
+.el-select__placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Select 下拉列表 */
+.el-select-dropdown {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.el-select-dropdown__item {
+  color: var(--text-primary) !important;
+  background-color: transparent !important;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 10px 16px;
+}
+
+.el-select-dropdown__item:hover {
+  background-color: rgba(122, 162, 247, 0.2) !important;
+  color: var(--text-primary) !important;
+}
+
+.el-select-dropdown__item.is-selected {
+  background-color: rgba(122, 162, 247, 0.25) !important;
+  color: var(--accent-cyan) !important;
+  font-weight: 600;
+}
+
+.el-popper.is-light {
+  background: var(--bg-float) !important; /* 浅蓝色背景 */
+  border-color: var(--border) !important;
+}
+
+/* Tabs */
+.el-tabs__header {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+}
+
+.el-tabs__item {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.el-tabs__item:hover {
+  color: var(--primary);
+}
+
+.el-tabs__item.is-active {
+  color: var(--accent-cyan) !important;
+  font-weight: 600;
+}
+
+.el-tabs__active-bar {
+  background-color: var(--accent-cyan) !important;
+}
+
+.el-tabs__nav-wrap::after {
+  background-color: var(--border);
+}
+
+/* Button */
+.el-button {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border-radius: 6px;
+  transition: all 0.25s ease;
+  font-size: 15px;
+}
+
+.el-button:hover {
+  transform: translateY(-1px);
+}
+
+.el-button--default {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.el-button--default:hover {
+  background-color: var(--bg-highlight) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan)) !important;
+  border: none !important;
+  color: var(--bg-primary) !important;
+  font-weight: 600;
+}
+
+.el-button--primary:hover {
+  box-shadow: 0 4px 12px rgba(122, 162, 247, 0.4);
+}
+
+/* Message & MessageBox */
+.el-message {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.el-message__content {
+  color: var(--text-primary) !important;
+}
+
+.el-message-box {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-lg);
+}
+
+.el-message-box__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.el-message-box__content {
+  color: var(--text-secondary) !important;
+}
+
+.el-message-box__header {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Pagination */
+.el-pagination {
+  font-weight: 500;
+}
+
+.el-pagination button, .el-pager li {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.el-pagination button:hover, .el-pager li:hover {
+  color: var(--primary) !important;
+  border-color: var(--primary);
+}
+
+.el-pager li.is-active {
+  background-color: var(--primary) !important;
+  color: var(--bg-primary) !important;
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+.el-pagination .el-select .el-input__wrapper {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+}
+
+/* Upload */
+.el-upload {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.el-upload:hover {
+  border-color: var(--primary);
+}
+
+.el-upload-dragger {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.el-upload-dragger:hover {
+  border-color: var(--primary) !important;
+  background-color: var(--bg-highlight) !important;
+}
+
+.el-upload__tip {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Menu */
+.el-menu {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.el-menu-item, .el-sub-menu__title {
+  color: var(--text-secondary) !important;
+  transition: all 0.2s ease;
+}
+
+.el-menu-item:hover, .el-sub-menu__title:hover {
+  background-color: var(--bg-highlight) !important;
+  color: var(--accent-cyan) !important;
+}
+
+.el-menu-item.is-active {
+  background-color: var(--bg-highlight) !important;
+  color: var(--accent-cyan) !important;
+  font-weight: 600;
+  border-right: 3px solid var(--accent-cyan);
+}
+
+/* Drawer */
+.el-drawer {
+  background-color: var(--bg-float) !important;
+  border-left: 1px solid var(--border);
+}
+
+.el-drawer__header {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.el-drawer__body {
+  background-color: var(--bg-float) !important;
+  color: var(--text-primary);
+}
+
+/* Notification */
+.el-notification {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.el-notification__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.el-notification__content {
+  color: var(--text-secondary) !important;
+}
+
+/* Popover - 浅蓝色背景 */
+.el-popover.el-popper {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+  border-color: var(--border) !important;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* Loading */
+.el-loading-mask {
+  background-color: rgba(26, 27, 38, 0.8) !important;
+}
+
+.el-loading-spinner .path {
+  stroke: var(--accent-cyan);
+}
+
+.el-loading-text {
+  color: var(--text-primary) !important;
+}
+
+/* Progress */
+.el-progress__text {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+/* Descriptions */
+.el-descriptions {
+  background-color: var(--bg-float);
+}
+
+.el-descriptions__header {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.el-descriptions__label {
+  color: var(--text-muted) !important;
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  font-weight: 600;
+}
+
+.el-descriptions__content {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+}
+
+/* Avatar */
+.el-avatar {
+  background-color: var(--bg-highlight);
+  border: 2px solid var(--border);
+}
+
+/* Badge */
+.el-badge__content {
+  background-color: var(--accent-red);
+  border-color: var(--accent-red);
+  font-weight: 600;
+}
+
+/* Timeline */
+.el-timeline-item__node {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.el-timeline-item__tail {
+  border-color: var(--border);
+}
+
+/* Radio & Checkbox */
+.el-radio__label, .el-checkbox__label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* DatePicker - 浅蓝色背景 */
+.el-date-editor .el-input__wrapper {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+}
+
+.el-picker__popper {
+  background-color: var(--bg-float) !important; /* 浅蓝色背景 */
+  border-color: var(--border) !important;
+}
+
+.el-date-picker__header {
+  color: var(--text-primary) !important;
+}
+
+.el-date-table td {
+  color: var(--text-secondary);
+}
+
+.el-date-table td.current:not(.disabled) span {
+  background-color: var(--primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .glass-card { padding: 16px; }
+  body { font-size: 14px; }
+}
+
+/* ===== Naive UI Tokyo Night 主题覆盖 ===== */
+
+/* Naive UI 全局变量覆盖 */
+.n-config-provider {
+  --n-border-radius: 8px;
+  --n-font-size: 15px;
+}
+
+/* Naive UI Select 下拉框 - 浅蓝色背景 */
+.n-base-select-menu {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.n-base-select-option {
+  color: var(--text-primary) !important;
+  background-color: transparent !important;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.n-base-select-option:hover {
+  background-color: rgba(122, 162, 247, 0.2) !important;
+}
+
+.n-base-select-option--selected {
+  background-color: rgba(122, 162, 247, 0.25) !important;
+  color: var(--accent-cyan) !important;
+  font-weight: 600;
+}
+
+/* Naive UI Input - 浅蓝色背景 */
+.n-input {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.n-input:hover {
+  border-color: var(--primary) !important;
+}
+
+.n-input:focus,
+.n-input.n-input--focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(125, 207, 255, 0.1) !important;
+}
+
+.n-input__input {
+  color: var(--text-primary) !important;
+  caret-color: var(--accent-cyan) !important;
+}
+
+.n-input__input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* Naive UI Textarea - 浅蓝色背景 */
+.n-input--textarea {
+  background-color: var(--bg-float) !important;
+}
+
+/* Naive UI Button */
+.n-button {
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.25s ease;
+}
+
+.n-button--primary-type {
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan)) !important;
+  border: none !important;
+  color: var(--bg-primary) !important;
+  font-weight: 600;
+}
+
+.n-button--primary-type:hover {
+  box-shadow: 0 4px 12px rgba(122, 162, 247, 0.4);
+  transform: translateY(-1px);
+}
+
+.n-button--default-type {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.n-button--default-type:hover {
+  background-color: var(--bg-highlight) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+/* Naive UI Card - 保持深色背景 */
+.n-card {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary);
+}
+
+.n-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.n-card__header {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+/* Naive UI Modal/Dialog - 浅蓝色背景 */
+.n-modal {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.n-dialog {
+  background-color: var(--bg-float) !important;
+}
+
+.n-dialog__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.n-dialog__content {
+  color: var(--text-primary) !important;
+}
+
+/* Naive UI Dropdown - 浅蓝色背景 */
+.n-dropdown-menu {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.n-dropdown-option {
+  color: var(--text-primary) !important;
+}
+
+.n-dropdown-option:hover {
+  background-color: rgba(122, 162, 247, 0.2) !important;
+}
+
+/* Naive UI Table */
+.n-data-table {
+  background-color: var(--bg-float) !important;
+}
+
+.n-data-table-th {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+  border-color: var(--border) !important;
+}
+
+.n-data-table-td {
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.n-data-table-tr:hover .n-data-table-td {
+  background-color: var(--bg-highlight) !important;
+}
+
+/* Naive UI Tabs */
+.n-tabs .n-tabs-tab {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.n-tabs .n-tabs-tab:hover {
+  color: var(--primary);
+}
+
+.n-tabs .n-tabs-tab--active {
+  color: var(--accent-cyan) !important;
+  font-weight: 600;
+}
+
+.n-tabs-bar {
+  background-color: var(--accent-cyan) !important;
+}
+
+/* Naive UI Message */
+.n-message {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.n-message__content {
+  color: var(--text-primary) !important;
+}
+
+/* Naive UI Notification */
+.n-notification {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.n-notification__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.n-notification__content {
+  color: var(--text-secondary) !important;
+}
+
+/* Naive UI DatePicker - 浅蓝色背景 */
+.n-date-panel {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+}
+
+.n-date-panel-date__day-item {
+  color: var(--text-secondary);
+}
+
+.n-date-panel-date__day-item--selected {
+  background-color: var(--primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+/* Naive UI Checkbox & Radio */
+.n-checkbox__label,
+.n-radio__label {
+  color: var(--text-primary) !important;
+  font-weight: 500;
+}
+
+.n-checkbox--checked .n-checkbox-box {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.n-radio--checked .n-radio__dot {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Naive UI Tag */
+.n-tag {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.n-tag--success-type {
+  background-color: rgba(158, 206, 106, 0.15);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.n-tag--warning-type {
+  background-color: rgba(255, 158, 100, 0.15);
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.n-tag--error-type {
+  background-color: rgba(247, 118, 142, 0.15);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.n-tag--info-type {
+  background-color: rgba(86, 95, 137, 0.15);
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+/* Naive UI Pagination */
+.n-pagination-item {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.n-pagination-item:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+.n-pagination-item--active {
+  background-color: var(--primary) !important;
+  color: var(--bg-primary) !important;
+  border-color: var(--primary) !important;
+  font-weight: 600;
+}
+
+/* Naive UI Progress */
+.n-progress-text {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+/* Naive UI Loading */
+.n-spin-content {
+  color: var(--accent-cyan) !important;
+}
+
+/* Naive UI Tooltip - 浅蓝色背景 */
+.n-tooltip {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary) !important;
+}
+
+/* Naive UI Popover - 浅蓝色背景 */
+.n-popover {
+  background-color: var(--bg-float) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.n-popover__content {
+  color: var(--text-primary) !important;
+}
+
+/* Naive UI Drawer */
+.n-drawer {
+  background-color: var(--bg-float) !important;
+  border-left: 1px solid var(--border);
+}
+
+.n-drawer-header {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.n-drawer-body {
+  background-color: var(--bg-float) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Naive UI Upload */
+.n-upload-trigger {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.n-upload-trigger:hover {
+  border-color: var(--primary) !important;
+  background-color: var(--bg-highlight) !important;
+}
+
+/* Naive UI Tree */
+.n-tree {
+  background-color: var(--bg-float) !important;
+}
+
+.n-tree-node-content {
+  color: var(--text-primary) !important;
+}
+
+.n-tree-node-content:hover {
+  background-color: var(--bg-highlight) !important;
+}
+
+.n-tree-node-content--selected {
+  background-color: rgba(122, 162, 247, 0.2) !important;
+  color: var(--accent-cyan) !important;
+}
+
+/* Naive UI Cascader - 浅蓝色背景 */
+.n-base-select-menu {
+  background-color: var(--bg-float) !important;
+}
+
+.n-cascader-menu {
+  background-color: var(--bg-float) !important;
+  border-color: var(--border) !important;
+}
+
+.n-cascader-option {
+  color: var(--text-primary) !important;
+}
+
+.n-cascader-option:hover {
+  background-color: rgba(122, 162, 247, 0.2) !important;
+}
+
+.n-cascader-option--selected {
+  background-color: rgba(122, 162, 247, 0.25) !important;
+  color: var(--accent-cyan) !important;
+}

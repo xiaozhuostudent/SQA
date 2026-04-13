@@ -1,0 +1,310 @@
+<template>
+  <div class="courses-page">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>课程管理</span>
+        </div>
+      </template>
+
+      <el-table :data="courses" style="width: 100%" v-loading="loading" element-loading-text="加载课程数据中...">
+        <el-table-column prop="name" label="课程名称" width="200" />
+        <el-table-column prop="courseCode" label="课程代码" width="120" />
+        <el-table-column prop="credit" label="学分" width="80" />
+        <el-table-column prop="capacity" label="容量" width="100">
+          <template #default="scope">
+            {{ scope.row.enrolled || 0 }} / {{ scope.row.capacity }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="semester" label="学期" width="120" />
+        <el-table-column prop="category" label="类别" width="100" />
+        <el-table-column label="操作" fixed="right" width="250">
+          <template #default="scope">
+            <el-button size="small" @click="viewCourse(scope.row)">查看</el-button>
+            <el-button size="small" type="primary" @click="editCourse(scope.row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteCourse(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- 创建/编辑课程对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
+      <el-form :model="courseForm" label-width="100px">
+        <el-form-item label="课程名称">
+          <el-input v-model="courseForm.name" placeholder="请输入课程名称" />
+        </el-form-item>
+        <el-form-item label="课程代码">
+          <el-input v-model="courseForm.courseCode" placeholder="请输入课程代码，如：CS101" />
+        </el-form-item>
+        <el-form-item label="学分">
+          <el-input-number v-model="courseForm.credit" :min="0.5" :max="10" :step="0.5" />
+        </el-form-item>
+        <el-form-item label="容量">
+          <el-input-number v-model="courseForm.capacity" :min="1" :max="200" />
+        </el-form-item>
+        <el-form-item label="学期">
+          <el-input v-model="courseForm.semester" placeholder="如：2025-2026-1" />
+        </el-form-item>
+        <el-form-item label="课程类别">
+          <el-select v-model="courseForm.category" placeholder="请选择课程类别" style="width: 100%">
+            <el-option label="专业必修" value="专业必修" />
+            <el-option label="专业选修" value="专业选修" />
+            <el-option label="通识必修" value="通识必修" />
+            <el-option label="通识选修" value="通识选修" />
+            <el-option label="公共基础" value="公共基础" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="课程简介">
+          <el-input
+            v-model="courseForm.description"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入课程简介"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getTeacherCourses, createCourse, updateCourse, deleteCourse } from '@/api/course'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+
+const loading = ref(false) // 页面加载状态
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const courses = ref([])
+const courseForm = ref({
+  id: null,
+  name: '',
+  courseCode: '',
+  credit: 3,
+  capacity: 50,
+  semester: '',
+  category: '',
+  description: ''
+})
+
+const dialogTitle = computed(() => isEdit.value ? '编辑课程' : '创建课程')
+
+const loadCourses = async () => {
+  loading.value = true
+  try {
+    const teacherId = userStore.userInfo?.id
+    if (!teacherId) {
+      ElMessage.error('未获取到教师ID，请重新登录')
+      return
+    }
+    
+    const res = await getTeacherCourses(teacherId)
+    
+    if (res.code === 200) {
+      courses.value = res.data || []
+      if (courses.value.length === 0) {
+        ElMessage.info('暂无课程数据')
+      }
+    } else {
+      ElMessage.error(res.message || '加载课程失败')
+    }
+  } catch (error) {
+    console.error('加载课程失败:', error)
+    ElMessage.error('加载课程失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const showCreateDialog = () => {
+  isEdit.value = false
+  courseForm.value = {
+    id: null,
+    name: '',
+    courseCode: '',
+    credit: 3,
+    capacity: 50,
+    semester: '2025-2026-1',
+    category: '专业必修',
+    description: ''
+  }
+  dialogVisible.value = true
+}
+
+const viewCourse = (course) => {
+  ElMessageBox.alert(
+    `<p><strong>课程名称：</strong>${course.name}</p>
+     <p><strong>课程代码：</strong>${course.courseCode}</p>
+     <p><strong>学分：</strong>${course.credit}</p>
+     <p><strong>容量：</strong>${course.enrolled || 0} / ${course.capacity}</p>
+     <p><strong>学期：</strong>${course.semester}</p>
+     <p><strong>类别：</strong>${course.category || '暂无'}</p>
+     <p><strong>简介：</strong>${course.description || '暂无简介'}</p>`,
+    `查看课程：${course.name}`,
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '关闭'
+    }
+  )
+}
+
+const editCourse = (course) => {
+  isEdit.value = true
+  courseForm.value = {
+    id: course.id,
+    name: course.name,
+    courseCode: course.courseCode,
+    credit: course.credit,
+    capacity: course.capacity,
+    semester: course.semester,
+    category: course.category || '',
+    description: course.description || ''
+  }
+  dialogVisible.value = true
+}
+
+const handleDeleteCourse = async (course) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除课程《${course.name}》吗？删除后将无法恢复。`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    const teacherId = userStore.userInfo?.id
+    if (!teacherId) {
+      ElMessage.error('未获取到教师ID')
+      return
+    }
+    
+    const res = await deleteCourse(course.id, teacherId)
+    
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      await loadCourses()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除课程失败:', error)
+      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+const handleSubmit = async () => {
+  try {
+    // 表单验证
+    if (!courseForm.value.name) {
+      ElMessage.warning('请输入课程名称')
+      return
+    }
+    if (!courseForm.value.courseCode) {
+      ElMessage.warning('请输入课程代码')
+      return
+    }
+    if (!courseForm.value.semester) {
+      ElMessage.warning('请输入学期')
+      return
+    }
+    
+    const teacherId = userStore.userInfo?.id
+    if (!teacherId) {
+      ElMessage.error('未获取到教师ID')
+      return
+    }
+    
+    let res
+    if (isEdit.value) {
+      // 编辑课程
+      res = await updateCourse(courseForm.value, teacherId)
+    } else {
+      // 创建课程
+      res = await createCourse(courseForm.value, teacherId)
+    }
+    
+    if (res.code === 200) {
+      ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
+      dialogVisible.value = false
+      await loadCourses()
+    } else {
+      ElMessage.error(res.message || (isEdit.value ? '更新失败' : '创建失败'))
+    }
+  } catch (error) {
+    console.error('提交失败:', error)
+    ElMessage.error((isEdit.value ? '更新' : '创建') + '失败: ' + (error.message || '未知错误'))
+  }
+}
+
+onMounted(() => {
+  loadCourses()
+})
+</script>
+
+<style scoped>
+.courses-page {
+  padding: 24px;
+  background-color: var(--bg-primary);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:deep(.el-card) {
+  background-color: var(--bg-float);
+  border-color: var(--border);
+}
+
+:deep(.el-card__header) {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+:deep(.el-table) {
+  background-color: var(--bg-float);
+  color: var(--text-primary);
+}
+
+:deep(.el-table th.el-table__cell) {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+:deep(.el-table td.el-table__cell) {
+  border-color: var(--border);
+}
+
+:deep(.el-dialog) {
+  background-color: var(--bg-float);
+}
+
+:deep(.el-dialog__header) {
+  background-color: var(--bg-secondary);
+}
+
+:deep(.el-input__wrapper) {
+  background-color: var(--bg-secondary);
+}
+
+:deep(.el-textarea__inner) {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+</style>

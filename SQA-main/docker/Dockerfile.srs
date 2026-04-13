@@ -1,0 +1,13 @@
+# Dockerfile for SRS (Simple RTMP Server)
+
+# 使用官方SRS镜像作为基础
+FROM srsio/srs:latest
+
+# 复制SRS配置文件
+COPY srs.conf /etc/srs/srs.conf
+
+# 暴露端口
+EXPOSE 1935 8088 1985
+
+# 启动SRS服务
+CMD ["/usr/local/bin/srs", "-c", "/etc/srs/srs.conf"]

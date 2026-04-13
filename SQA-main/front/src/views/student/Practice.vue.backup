@@ -1,0 +1,322 @@
+<template>
+  <div class="practice-container">
+    <el-card shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <span>📚 题库刷题</span>
+        </div>
+      </template>
+
+      <el-row :gutter="20" style="margin-bottom: 20px;">
+        <el-col :span="8">
+          <el-select v-model="selectedCourse" placeholder="选择课程" style="width: 100%;" @change="loadQuestions">
+            <el-option v-for="course in courses" :key="course.id" :label="course.name" :value="course.id"/>
+          </el-select>
+        </el-col>
+        <el-col :span="8">
+          <el-select v-model="selectedType" placeholder="题目类型" style="width: 100%;" @change="loadQuestions">
+            <el-option label="全部" value=""/>
+            <el-option label="单选题" value="single_choice"/>
+            <el-option label="多选题" value="multiple_choice"/>
+            <el-option label="判断题" value="true_false"/>
+            <el-option label="填空题" value="fill_blank"/>
+            <el-option label="简答题" value="short_answer"/>
+            <el-option label="编程题" value="programming"/>
+          </el-select>
+        </el-col>
+        <el-col :span="8">
+          <el-button type="primary" @click="randomPractice" style="width: 100%;">
+            🎲 随机抽题练习
+          </el-button>
+        </el-col>
+      </el-row>
+
+      <el-table :data="questions" stripe v-loading="loading">
+        <el-table-column type="index" label="#" width="60"/>
+        <el-table-column prop="content" label="题目内容" min-width="300" show-overflow-tooltip/>
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getQuestionTypeTag(row.questionType)">
+              {{ getQuestionTypeName(row.questionType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="difficulty" label="难度" width="100">
+          <template #default="{ row }">
+            <el-rate v-model="row.difficulty" disabled show-score/>
+          </template>
+        </el-table-column>
+        <el-table-column prop="score" label="分值" width="80"/>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="practiceQuestion(row)">
+              开始练习
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="loadQuestions"
+        @current-change="loadQuestions"
+        style="margin-top: 20px; justify-content: center;"
+      />
+    </el-card>
+
+    <!-- 练习对话框 -->
+    <el-dialog v-model="practiceDialogVisible" title="题目练习" width="800px">
+      <div v-if="currentQuestion" class="practice-content">
+        <el-tag :type="getQuestionTypeTag(currentQuestion.questionType)" style="margin-bottom: 10px;">
+          {{ getQuestionTypeName(currentQuestion.questionType) }}
+        </el-tag>
+        <div class="question-content">{{ currentQuestion.content }}</div>
+        
+        <!-- 选择题 -->
+        <el-radio-group v-if="currentQuestion.questionType === 'single_choice'" v-model="userAnswer">
+          <el-radio v-for="option in currentQuestion.options" :key="option" :label="option">{{ option }}</el-radio>
+        </el-radio-group>
+        
+        <!-- 多选题 -->
+        <el-checkbox-group v-if="currentQuestion.questionType === 'multiple_choice'" v-model="userAnswer">
+          <el-checkbox v-for="option in currentQuestion.options" :key="option" :label="option">{{ option }}</el-checkbox>
+        </el-checkbox-group>
+        
+        <!-- 判断题 -->
+        <el-radio-group v-if="currentQuestion.questionType === 'true_false'" v-model="userAnswer">
+          <el-radio label="对">对</el-radio>
+          <el-radio label="错">错</el-radio>
+        </el-radio-group>
+        
+        <!-- 主观题 -->
+        <el-input 
+          v-if="['fill_blank', 'short_answer', 'programming'].includes(currentQuestion.questionType)"
+          v-model="userAnswer"
+          type="textarea"
+          :rows="currentQuestion.questionType === 'programming' ? 10 : 4"
+          placeholder="请输入答案..."
+        />
+
+        <!-- 答案解析 -->
+        <div v-if="showAnswer" class="answer-section">
+          <el-divider content-position="left">答案解析</el-divider>
+          <div class="answer-item">
+            <strong>正确答案:</strong> {{ currentQuestion.answer }}
+          </div>
+          <div class="answer-item" v-if="currentQuestion.analysis">
+            <strong>解析:</strong> {{ currentQuestion.analysis }}
+          </div>
+          <div class="answer-item">
+            <el-tag :type="isCorrect ? 'success' : 'danger'">
+              {{ isCorrect ? '✓ 回答正确' : '✗ 回答错误' }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="practiceDialogVisible = false">关闭</el-button>
+        <el-button v-if="!showAnswer" type="primary" @click="checkAnswer">提交答案</el-button>
+        <el-button v-else type="success" @click="nextQuestion">下一题</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import questionApi from '@/api/question'
+import courseApi from '@/api/course'
+
+const courses = ref([])
+const selectedCourse = ref('')
+const selectedType = ref('')
+const questions = ref([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const loading = ref(false)
+
+const practiceDialogVisible = ref(false)
+const currentQuestion = ref(null)
+const userAnswer = ref('')
+const showAnswer = ref(false)
+const isCorrect = ref(false)
+
+onMounted(() => {
+  loadCourses()
+})
+
+const loadCourses = async () => {
+  try {
+    const { useUserStore } = await import('@/stores/user')
+    const userStore = useUserStore()
+    const studentId = userStore.userInfo.id || 1
+    const res = await courseApi.getMyCourses(studentId)
+    if (res.code === 200) {
+      courses.value = res.data || []
+      
+      // 自动选择第一个课程
+      if (courses.value.length > 0 && !selectedCourse.value) {
+        selectedCourse.value = courses.value[0].id
+        loadQuestions()
+      }
+    }
+  } catch (error) {
+    console.error('加载课程列表失败:', error)
+    ElMessage.error('加载课程列表失败')
+  }
+}
+
+const loadQuestions = async () => {
+  if (!selectedCourse.value) {
+    ElMessage.warning('请先选择课程')
+    return
+  }
+  
+  loading.value = true
+  try {
+    const res = await questionApi.getQuestions(selectedCourse.value, {
+      questionType: selectedType.value,
+      page: currentPage.value,
+      size: pageSize.value
+    })
+    if (res.code === 200) {
+      questions.value = res.data.list || res.data || []
+      total.value = res.data.total || questions.value.length
+    } else {
+      ElMessage.error(res.message || '加载题目失败')
+    }
+  } catch (error) {
+    console.error('加载题目失败:', error)
+    ElMessage.error('加载题目失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const randomPractice = async () => {
+  if (!selectedCourse.value) {
+    ElMessage.warning('请先选择课程')
+    return
+  }
+  
+  if (questions.value.length === 0) {
+    ElMessage.warning('该课程暂无题目')
+    return
+  }
+  
+  // 从已加载的题目中随机选择
+  const randomIndex = Math.floor(Math.random() * questions.value.length)
+  practiceQuestion(questions.value[randomIndex])
+}
+
+const practiceQuestion = (question) => {
+  currentQuestion.value = question
+  userAnswer.value = question.questionType === 'multiple_choice' ? [] : ''
+  showAnswer.value = false
+  isCorrect.value = false
+  practiceDialogVisible.value = true
+}
+
+const checkAnswer = () => {
+  if (!userAnswer.value || (Array.isArray(userAnswer.value) && userAnswer.value.length === 0)) {
+    ElMessage.warning('请先作答')
+    return
+  }
+  
+  // 检查答案
+  if (currentQuestion.value.questionType === 'multiple_choice') {
+    isCorrect.value = JSON.stringify(userAnswer.value.sort()) === JSON.stringify(currentQuestion.value.answer.sort())
+  } else {
+    isCorrect.value = userAnswer.value === currentQuestion.value.answer
+  }
+  
+  showAnswer.value = true
+}
+
+const nextQuestion = () => {
+  randomPractice()
+}
+
+const getQuestionTypeTag = (type) => {
+  const map = {
+    'single_choice': '',
+    'multiple_choice': 'warning',
+    'true_false': 'success',
+    'fill_blank': 'info',
+    'short_answer': 'info',
+    'programming': 'danger'
+  }
+  return map[type]
+}
+
+const getQuestionTypeName = (type) => {
+  const map = {
+    'single_choice': '单选题',
+    'multiple_choice': '多选题',
+    'true_false': '判断题',
+    'fill_blank': '填空题',
+    'short_answer': '简答题',
+    'programming': '编程题'
+  }
+  return map[type] || type
+}
+</script>
+
+<style scoped>
+.practice-container {
+  padding: 20px;
+}
+
+.card-header {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.practice-content {
+  padding: 20px;
+}
+
+.question-content {
+  font-size: 16px;
+  line-height: 1.8;
+  margin: 20px 0;
+  padding: 15px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  color: var(--text-primary);
+}
+
+.el-radio-group, .el-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.answer-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-cyan);
+}
+
+.answer-item {
+  margin: 15px 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.answer-item strong {
+  color: var(--accent-cyan);
+  margin-right: 8px;
+}
+</style>

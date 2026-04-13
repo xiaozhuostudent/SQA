@@ -1,0 +1,33 @@
+# 忽略所有上传的资源文件，但保留目录结构
+*
+
+# 但不忽略以下文件
+!.gitignore
+!README.md
+!resources/
+!resources/documents/
+!resources/documents/课件/
+!resources/documents/课件/.gitkeep
+!resources/documents/教材/
+!resources/documents/教材/.gitkeep
+!resources/documents/作业模板/
+!resources/documents/作业模板/.gitkeep
+!resources/documents/实验指导书/
+!resources/documents/实验指导书/.gitkeep
+!resources/videos/
+!resources/videos/课程录像/
+!resources/videos/课程录像/.gitkeep
+!resources/videos/实验演示/
+!resources/videos/实验演示/.gitkeep
+!resources/videos/其他视频/
+!resources/videos/其他视频/.gitkeep
+!resources/images/
+!resources/images/图片素材/
+!resources/images/图片素材/.gitkeep
+!resources/images/课程图片/
+!resources/images/课程图片/.gitkeep
+!resources/archives/
+!resources/archives/压缩包/
+!resources/archives/压缩包/.gitkeep
+!resources/archives/其他文件/
+!resources/archives/其他文件/.gitkeep
