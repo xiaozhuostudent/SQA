@@ -208,30 +208,6 @@ const total = ref(0)
 const selectedCourseId = ref(null)
 const myCourses = ref([])
 
-const getBackendOrigin = () => {
-  const apiBase = import.meta.env.VITE_API_BASE_URL
-  if (apiBase && /^https?:\/\//i.test(apiBase)) {
-    try {
-      return new URL(apiBase).origin
-    } catch (error) {
-      console.warn('VITE_API_BASE_URL 解析失败，回退到默认后端地址:', error)
-    }
-  }
-  return `${window.location.protocol}//${window.location.hostname}:8080`
-}
-
-const BACKEND_ORIGIN = getBackendOrigin()
-
-const normalizeResourceAccessUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('/')) {
-    return `${BACKEND_ORIGIN}${url}`
-  }
-  return url
-    .replace(/^https?:\/\/(localhost|127\.0\.0\.1):8080/i, BACKEND_ORIGIN)
-    .replace(/^https?:\/\/120\.26\.212\.210(?::\d+)?/i, BACKEND_ORIGIN)
-}
-
 // 预览相关
 const previewVisible = ref(false)
 const previewUrl = ref('')
@@ -314,17 +290,13 @@ const loadResources = async () => {
         )
       }
       
-      allResources.value = filteredData.map(item => ({
-        ...item,
-        fileUrl: normalizeResourceAccessUrl(item.fileUrl),
-        previewUrl: normalizeResourceAccessUrl(item.previewUrl)
-      }))
+      allResources.value = filteredData
       total.value = filteredData.length
       
       // 前端分页
       const start = (currentPage.value - 1) * pageSize.value
       const end = start + pageSize.value
-      resources.value = allResources.value.slice(start, end)
+      resources.value = filteredData.slice(start, end)
     } else {
       ElMessage.error(response.message || '加载资源失败')
     }
@@ -381,16 +353,18 @@ const previewResource = (resource) => {
   if (['mp4', 'webm', 'ogg'].includes(ext)) {
     // 视频预览
     previewType.value = 'video'
-    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
+    previewUrl.value = resource.fileUrl
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (['docx', 'pptx'].includes(ext)) {
-    // DOCX和PPTX：仅使用PDF地址做iframe预览
+    // DOCX和PPTX：使用previewUrl字段的PDF文件，如果没有则用替换扩展名的方式
     previewType.value = 'pdf'
-    const previewCandidate = /\.pdf([?#].*)?$/i.test(resource.previewUrl || '')
-      ? resource.previewUrl
-      : resource.fileUrl.replace(/\.(docx|pptx)$/i, '.pdf')
-    previewUrl.value = normalizeResourceAccessUrl(previewCandidate)
+    if (resource.previewUrl) {
+      previewUrl.value = resource.previewUrl
+    } else {
+      // 降级方案：将文件扩展名改为.pdf
+      previewUrl.value = resource.fileUrl.replace(/\.(docx|pptx)$/i, '.pdf')
+    }
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (ext === 'xlsx') {
@@ -400,13 +374,13 @@ const previewResource = (resource) => {
   } else if (ext === 'pdf') {
     // PDF直接预览
     previewType.value = 'pdf'
-    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
+    previewUrl.value = resource.fileUrl
     previewTitle.value = resource.name
     previewVisible.value = true
   } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(ext)) {
     // 图片预览
     previewType.value = 'image'
-    previewUrl.value = normalizeResourceAccessUrl(resource.fileUrl)
+    previewUrl.value = resource.fileUrl
     previewTitle.value = resource.name
     previewVisible.value = true
   }
@@ -421,7 +395,7 @@ const toggleFullscreen = () => {
 }
 
 const handleDownload = (resource) => {
-  const success = downloadFile(normalizeResourceAccessUrl(resource.fileUrl), resource.name)
+  const success = downloadFile(resource.fileUrl, resource.name)
   if (success) {
     ElMessage.success(`开始下载: ${resource.name}`)
     // 可选: 调用后端API增加下载次数

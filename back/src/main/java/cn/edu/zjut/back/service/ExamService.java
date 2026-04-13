@@ -325,13 +325,24 @@ public class ExamService {
      * 创建题目
      */
     public QuestionBank createQuestion(QuestionBank question) {
+        if (question.getStatus() == null) question.setStatus("active");
+        if (question.getIsVisible() == null) question.setIsVisible(1);
+        if (question.getUsageCount() == null) question.setUsageCount(0);
+        if (question.getScore() == null) question.setScore(5);
+        if (question.getDifficulty() == null) question.setDifficulty("medium");
         questionBankMapper.insert(question);
         return question;
     }
-    
+
     /**
-     * 获取所有题库列表
-     * @param userRole 用户角色 (student, teacher, admin)
+     * 更新题目
+     */
+    public void updateQuestion(QuestionBank question) {
+        questionBankMapper.update(question);
+    }
+
+    /**
+     * 删除题目
      */
     public List<QuestionBank> getAllQuestions(String userRole) {
         // 如果是学生，只返回可见的题目

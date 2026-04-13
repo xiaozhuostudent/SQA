@@ -22,17 +22,17 @@ export default defineConfig({
     proxy: {
       // 统一处理：所有后端API都统一使用/api前缀，直接转发即可
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://yali-backend:8080',
         changeOrigin: true
       },
       '/ai-service': {
-        target: 'http://localhost:5051',
+        target: 'http://yali-ai:5051',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ai-service/, '')
       },
       // 添加 WebSocket 代理
       '/ws': {
-        target: 'http://localhost:8080',
+        target: 'http://yali-backend:8080',
         changeOrigin: true,
         ws: true
       }

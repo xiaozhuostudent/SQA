@@ -387,7 +387,12 @@ const showCreateDialog = () => {
 
 const editQuestion = (row) => {
   isEdit.value = true
-  questionForm.value = { ...row }
+  const data = { ...row }
+  // difficulty 字符串转数字给 el-rate 显示
+  if (typeof data.difficulty === 'string') {
+    data.difficulty = data.difficulty === 'easy' ? 1 : data.difficulty === 'medium' ? 2 : 3
+  }
+  questionForm.value = data
   dialogVisible.value = true
 }
 
@@ -399,6 +404,24 @@ const handleSubmit = async () => {
     }
 
     const data = { ...questionForm.value }
+    // 非选择题不传 options
+    if (!['single_choice', 'multiple_choice'].includes(data.questionType)) {
+      data.options = null
+    } else if (data.options && typeof data.options === 'string') {
+      // 将每行一个选项的文本转为 JSON 数组
+      try {
+        JSON.parse(data.options)
+      } catch {
+        const lines = data.options.split('\n').map(l => l.trim()).filter(l => l)
+        data.options = JSON.stringify(lines)
+      }
+    } else {
+      data.options = null
+    }
+    // difficulty 从 el-rate 数字转为字符串
+    if (typeof data.difficulty === 'number') {
+      data.difficulty = data.difficulty <= 1 ? 'easy' : data.difficulty <= 2 ? 'medium' : 'hard'
+    }
     const res = isEdit.value 
       ? await updateQuestion(data.id, data)
       : await createQuestion(data)

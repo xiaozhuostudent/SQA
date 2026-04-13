@@ -37,6 +37,11 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/resources/**")
                 .addResourceLocations("file:./storage/resources/")
                 .setCachePeriod(604800); // 缓存7天
+
+        // 映射 source 目录（课程资源本地文件）
+        registry.addResourceHandler("/source/**")
+                .addResourceLocations("file:./storage/resources/")
+                .setCachePeriod(604800);
     }
 
     /**

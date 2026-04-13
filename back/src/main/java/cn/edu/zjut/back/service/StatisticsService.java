@@ -4,6 +4,7 @@ import cn.edu.zjut.back.common.Result;
 import cn.edu.zjut.back.mapper.*;
 import cn.edu.zjut.back.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -22,6 +23,7 @@ public class StatisticsService {
     private final EnrollmentMapper enrollmentMapper;
     private final HomeworkSubmissionMapper homeworkSubmissionMapper;
     private final RedisUtil redisUtil;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public StatisticsService(
             UserMapper userMapper,
@@ -30,7 +32,8 @@ public class StatisticsService {
             HomeworkMapper homeworkMapper,
             EnrollmentMapper enrollmentMapper,
             HomeworkSubmissionMapper homeworkSubmissionMapper,
-            RedisUtil redisUtil) {
+            RedisUtil redisUtil,
+            RedisTemplate<String, Object> redisTemplate) {
         this.userMapper = userMapper;
         this.courseMapper = courseMapper;
         this.resourceMapper = resourceMapper;
@@ -38,6 +41,7 @@ public class StatisticsService {
         this.enrollmentMapper = enrollmentMapper;
         this.homeworkSubmissionMapper = homeworkSubmissionMapper;
         this.redisUtil = redisUtil;
+        this.redisTemplate = redisTemplate;
     }
 
     /**
@@ -221,7 +225,8 @@ public class StatisticsService {
      */
     private int getActiveUsersCount() {
         try {
-            return (int) redisUtil.sGetSetSize("online:users");
+            Set<String> keys = redisTemplate.keys("online:users:*");
+            return keys != null ? keys.size() : 0;
         } catch (Exception e) {
             log.error("获取活跃用户数失败", e);
             return 0;

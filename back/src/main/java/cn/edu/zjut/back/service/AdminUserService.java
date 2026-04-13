@@ -7,7 +7,7 @@ import cn.edu.zjut.back.vo.PageResultVO;
 import cn.edu.zjut.back.vo.UserVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,7 +26,7 @@ public class AdminUserService {
     private UserMapper userMapper;
     
     @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
     
     /**
      * 分页查询用户列表

@@ -153,53 +153,8 @@ const recentDocs = ref([])
 const editorLoaded = ref(false)
 const currentEditorConfig = ref(null)
 
-const getOnlyOfficeDocHost = () => {
-  const envHost = import.meta.env.VITE_ONLYOFFICE_DOC_HOST
-  if (envHost) {
-    return envHost.replace(/\/$/, '')
-  }
-
-  const host = window.location.hostname
-  const isLocal = host === 'localhost' || host === '127.0.0.1'
-  if (isLocal) {
-    // OnlyOffice runs in Docker and cannot access localhost on the host machine.
-    return 'http://host.docker.internal:8080'
-  }
-  return `${window.location.protocol}//${host}:8080`
-}
-
-const getOnlyOfficeServerUrl = () => {
-  const envUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL
-  return (envUrl && envUrl.replace(/\/$/, '')) || 'http://127.0.0.1:8081'
-}
-
-const ONLYOFFICE_DOC_HOST = getOnlyOfficeDocHost()
-
-const normalizeDocumentUrlForOnlyOffice = (url) => {
-  if (!url) return url
-  let normalized = url
-    .replace(/^https?:\/\/(localhost|127\.0\.0\.1):8080/i, ONLYOFFICE_DOC_HOST)
-    .replace(/^https?:\/\/120\.26\.212\.210/i, ONLYOFFICE_DOC_HOST)
-
-  const legacyPathMap = {
-    '/resources/testpaper/Java程序设计A卷.docx': '/resources/preparation/sample_word.docx',
-    '/resources/ppt/Java程序设计课件.pptx': '/resources/preparation/sample_ppt.pptx',
-    '/resources/testpaper/新建word.docx': '/resources/preparation/template_word.docx',
-    '/resources/testpaper/新建excel.xlsx': '/resources/preparation/template_excel.xlsx',
-    '/resources/ppt/新建ppt.pptx': '/resources/preparation/template_ppt.pptx'
-  }
-
-  Object.entries(legacyPathMap).forEach(([legacyPath, newPath]) => {
-    if (normalized.includes(legacyPath)) {
-      normalized = `${ONLYOFFICE_DOC_HOST}${newPath}`
-    }
-  })
-
-  return normalized
-}
-
 const serverConfig = ref({
-  url: getOnlyOfficeServerUrl()
+  url: 'http://127.0.0.1:8081'
 })
 
 // 获取当前用户信息
@@ -224,17 +179,17 @@ const generateDocKey = (url) => {
 }
 
 const sampleDocs = {
-  word: `${ONLYOFFICE_DOC_HOST}/resources/preparation/sample_word.docx`,
-  excel: `${ONLYOFFICE_DOC_HOST}/resources/preparation/sample_excel.xlsx`,
-  ppt: `${ONLYOFFICE_DOC_HOST}/resources/preparation/sample_ppt.pptx`
+  word: 'http://120.26.212.210/resources/testpaper/Java程序设计A卷.docx',
+  excel: 'https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-xlsx-file-for-testing.xlsx',
+  ppt: 'http://120.26.212.210/resources/ppt/Java程序设计课件.pptx'
 }
 
 // 新建文档使用的模板（包含基础内容的轻量级模板）
 const templateDocs = {
-  word: `${ONLYOFFICE_DOC_HOST}/resources/preparation/template_word.docx`,
-  excel: `${ONLYOFFICE_DOC_HOST}/resources/preparation/template_excel.xlsx`,
-  powerpoint: `${ONLYOFFICE_DOC_HOST}/resources/preparation/template_ppt.pptx`,
-  ppt: `${ONLYOFFICE_DOC_HOST}/resources/preparation/template_ppt.pptx`  // 兼容两种写法
+  word: 'http://120.26.212.210/resources/testpaper/新建word.docx',
+  excel: 'http://120.26.212.210/resources/testpaper/新建excel.xlsx',
+  powerpoint: 'http://120.26.212.210/resources/ppt/新建ppt.pptx',
+  ppt: 'http://120.26.212.210/resources/ppt/新建ppt.pptx'  // 兼容两种写法
 }
 
 // 从localStorage加载历史记录
@@ -452,10 +407,6 @@ const createEditor = (config) => {
 const initEditor = (config) => {
   try {
     console.log('初始化编辑器，原始配置:', config)
-
-    if (config?.document?.url) {
-      config.document.url = normalizeDocumentUrlForOnlyOffice(config.document.url)
-    }
     
     // 确保配置完整
     if (!config.editorConfig) {
@@ -651,13 +602,15 @@ const loadFromUrl = () => {
     
     const user = getCurrentUser()
     const docKey = generateDocKey(fileUrl)
+    // OnlyOffice 跑在 Docker 容器里，需要用 host.docker.internal 访问宿主机
+    const onlyofficeFileUrl = fileUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal')
     
     const config = {
       document: {
         fileType: fileType,
         key: docKey, // 使用固定key
         title: fileName,
-        url: fileUrl,
+        url: onlyofficeFileUrl,
         permissions: {
           edit: true,
           download: true,

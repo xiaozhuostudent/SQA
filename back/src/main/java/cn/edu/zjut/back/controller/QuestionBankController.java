@@ -51,7 +51,21 @@ public class QuestionBankController {
             // 设置创建者信息
             question.setCreatorId(userId);
             question.setCreatorName(username);
-
+            // options 非 JSON 时转为 JSON 数组
+            if (question.getOptions() != null && !question.getOptions().isEmpty()) {
+                try { new com.fasterxml.jackson.databind.ObjectMapper().readTree(question.getOptions()); }
+                catch (Exception e2) {
+                    java.util.List<String> list = new java.util.ArrayList<>();
+                    for (String l : question.getOptions().split("\n")) { if (!l.trim().isEmpty()) list.add(l.trim()); }
+                    question.setOptions(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(list));
+                }
+            }
+            // difficulty 数字转字符串
+            if (question.getDifficulty() != null) {
+                try { int d = Integer.parseInt(question.getDifficulty());
+                    question.setDifficulty(d <= 1 ? "easy" : d <= 2 ? "medium" : "hard");
+                } catch (NumberFormatException ignored) {}
+            }
             QuestionBank created = questionBankService.createQuestion(question);
             return Result.success(created);
         } catch (Exception e) {
@@ -160,6 +174,21 @@ public class QuestionBankController {
             }
 
             question.setId(id);
+            // options 非 JSON 时转为 JSON 数组
+            if (question.getOptions() != null && !question.getOptions().isEmpty()) {
+                try { new com.fasterxml.jackson.databind.ObjectMapper().readTree(question.getOptions()); }
+                catch (Exception e2) {
+                    java.util.List<String> list = new java.util.ArrayList<>();
+                    for (String l : question.getOptions().split("\n")) { if (!l.trim().isEmpty()) list.add(l.trim()); }
+                    question.setOptions(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(list));
+                }
+            }
+            // difficulty 数字转字符串
+            if (question.getDifficulty() != null) {
+                try { int d = Integer.parseInt(question.getDifficulty());
+                    question.setDifficulty(d <= 1 ? "easy" : d <= 2 ? "medium" : "hard");
+                } catch (NumberFormatException ignored) {}
+            }
             questionBankService.updateQuestion(question);
             return Result.success("更新成功");
         } catch (Exception e) {

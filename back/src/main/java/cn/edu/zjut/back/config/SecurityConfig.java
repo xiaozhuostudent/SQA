@@ -26,13 +26,8 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .headers(headers -> headers
-                .frameOptions(frame -> frame.disable())
-                .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("frame-ancestors 'self' http://localhost:3001 http://127.0.0.1:3001")
-                )
-            )
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll()  // 测试环境：允许所有请求
             );

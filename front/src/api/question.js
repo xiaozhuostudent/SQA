@@ -10,15 +10,15 @@ export const getQuestionBankByCourse = (courseId) => {
 }
 
 export const createQuestion = (data) => {
-  return request.post('/exam/question/create', data)
+  return request.post('/questions/create', data)
 }
 
 export const updateQuestion = (id, data) => {
-  return request.put(`/exam/question/update/${id}`, data)
+  return request.put(`/questions/${id}`, data)
 }
 
 export const deleteQuestion = (id) => {
-  return request.delete(`/exam/question/delete/${id}`);
+  return request.delete(`/questions/${id}`)
 }
 
 // 批量导入题目（JSON格式）
@@ -42,17 +42,17 @@ export default {
 
   // 创建题目
   createQuestion(data) {
-    return request.post('/exam/question/create', data)
+    return request.post('/questions/create', data)
   },
 
   // 更新题目
   updateQuestion(id, data) {
-    return request.put(`/exam/question/update/${id}`, data)
+    return request.put(`/questions/${id}`, data)
   },
 
   // 删除题目
   deleteQuestion(id) {
-    return request.delete(`/exam/question/delete/${id}`)
+    return request.delete(`/questions/${id}`)
   },
 
   // 导入题目

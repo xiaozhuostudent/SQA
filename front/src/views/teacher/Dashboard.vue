@@ -99,8 +99,8 @@
     <AIAssistant 
       :visible="showAIAssistant"
       :role="'teacher'"
-      :userId="userStore.user?.id"
-      :username="userStore.user?.username"
+      :userId="userStore.userInfo?.id"
+      :username="userStore.userInfo?.username"
       @update:visible="showAIAssistant = $event"
     />
   </div>

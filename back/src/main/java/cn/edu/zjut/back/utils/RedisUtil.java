@@ -1,114 +1,31 @@
 package cn.edu.zjut.back.utils;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 /**
- * 轻量内存缓存工具。
- * <p>
- * 该实现保留原有 RedisUtil 的方法签名，避免业务代码大范围修改，
- * 但底层不再依赖 Redis 服务。
+ * Redis 工具类
  */
 @Component
 public class RedisUtil {
 
-    private static final class CacheEntry {
-        private Object value;
-        private long expireAtMillis; // -1 表示永久
-
-        private CacheEntry(Object value, long expireAtMillis) {
-            this.value = value;
-            this.expireAtMillis = expireAtMillis;
-        }
-
-        private boolean isExpired() {
-            return expireAtMillis > 0 && System.currentTimeMillis() > expireAtMillis;
-        }
-    }
-
-    private final ConcurrentHashMap<String, CacheEntry> store = new ConcurrentHashMap<>();
-
-    private void removeIfExpired(String key) {
-        CacheEntry entry = store.get(key);
-        if (entry != null && entry.isExpired()) {
-            store.remove(key);
-        }
-    }
-
-    private CacheEntry getEntry(String key) {
-        if (key == null) {
-            return null;
-        }
-        removeIfExpired(key);
-        return store.get(key);
-    }
-
-    private long toExpireAtMillis(long time, TimeUnit unit) {
-        if (time <= 0) {
-            return -1;
-        }
-        return System.currentTimeMillis() + unit.toMillis(time);
-    }
-
-    private String wildcardToRegex(String pattern) {
-        if (pattern == null || pattern.isEmpty()) {
-            return ".*";
-        }
-        StringBuilder builder = new StringBuilder();
-        builder.append('^');
-        for (char ch : pattern.toCharArray()) {
-            switch (ch) {
-                case '*':
-                    builder.append(".*");
-                    break;
-                case '?':
-                    builder.append('.');
-                    break;
-                case '.':
-                case '$':
-                case '^':
-                case '{':
-                case '}':
-                case '(': 
-                case ')':
-                case '|':
-                case '+':
-                case '[':
-                case ']':
-                case '\\':
-                    builder.append('\\').append(ch);
-                    break;
-                default:
-                    builder.append(ch);
-            }
-        }
-        builder.append('$');
-        return builder.toString();
-    }
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // =============================common============================
+    /**
+     * 指定缓存失效时间
+     * @param key 键
+     * @param time 时间(秒)
+     */
     public boolean expire(String key, long time) {
         try {
-            CacheEntry entry = getEntry(key);
-            if (entry == null) {
-                return false;
-            }
             if (time > 0) {
-                entry.expireAtMillis = toExpireAtMillis(time, TimeUnit.SECONDS);
+                redisTemplate.expire(key, time, TimeUnit.SECONDS);
             }
             return true;
         } catch (Exception e) {
@@ -117,77 +34,74 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * 根据key 获取过期时间
+     * @param key 键 不能为null
+     * @return 时间(秒) 返回0代表为永久有效
+     */
     public long getExpire(String key) {
-        CacheEntry entry = getEntry(key);
-        if (entry == null) {
-            return -2;
-        }
-        if (entry.expireAtMillis < 0) {
-            return -1;
-        }
-        long remainingMillis = entry.expireAtMillis - System.currentTimeMillis();
-        return Math.max(0, TimeUnit.MILLISECONDS.toSeconds(remainingMillis));
+        return redisTemplate.getExpire(key, TimeUnit.SECONDS);
     }
 
+    /**
+     * 判断key是否存在
+     * @param key 键
+     * @return true 存在 false不存在
+     */
     public boolean hasKey(String key) {
         try {
-            return getEntry(key) != null;
+            return redisTemplate.hasKey(key);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 
+    /**
+     * 删除缓存
+     * @param key 可以传一个值 或多个
+     */
     @SuppressWarnings("unchecked")
     public void delete(String... key) {
         if (key != null && key.length > 0) {
             if (key.length == 1) {
-                store.remove(key[0]);
+                redisTemplate.delete(key[0]);
             } else {
-                store.keySet().removeAll((Collection<String>) Arrays.asList(key));
+                redisTemplate.delete((Collection<String>) Arrays.asList(key));
             }
         }
     }
 
+    /**
+     * 根据模式删除缓存
+     * @param pattern 模式，如 "user:*"
+     */
     public void deleteByPattern(String pattern) {
-        String regex = wildcardToRegex(pattern);
-        Pattern compiled = Pattern.compile(regex);
-        Set<String> matched = new HashSet<>();
-        for (String key : store.keySet()) {
-            if (compiled.matcher(key).matches()) {
-                matched.add(key);
-            }
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
         }
-        if (!matched.isEmpty()) {
-            store.keySet().removeAll(matched);
-        }
-    }
-
-    public Set<String> keys(String pattern) {
-        String regex = wildcardToRegex(pattern);
-        Pattern compiled = Pattern.compile(regex);
-        Set<String> matched = new LinkedHashSet<>();
-        for (String key : new ArrayList<>(store.keySet())) {
-            if (compiled.matcher(key).matches() && hasKey(key)) {
-                matched.add(key);
-            }
-        }
-        return matched;
-    }
-
-    public void clear() {
-        store.clear();
     }
 
     // ============================String=============================
+    /**
+     * 普通缓存获取
+     * @param key 键
+     * @return 值
+     */
     public Object get(String key) {
-        CacheEntry entry = getEntry(key);
-        return entry == null ? null : entry.value;
+        return key == null ? null : redisTemplate.opsForValue().get(key);
     }
 
+    /**
+     * 普通缓存放入
+     * @param key 键
+     * @param value 值
+     * @return true成功 false失败
+     */
     public boolean set(String key, Object value) {
         try {
-            store.put(key, new CacheEntry(value, -1));
+            redisTemplate.opsForValue().set(key, value);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -195,10 +109,17 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * 普通缓存放入并设置时间
+     * @param key 键
+     * @param value 值
+     * @param time 时间(秒) time要大于0 如果time小于等于0 将设置无限期
+     * @return true成功 false 失败
+     */
     public boolean set(String key, Object value, long time) {
         try {
             if (time > 0) {
-                store.put(key, new CacheEntry(value, toExpireAtMillis(time, TimeUnit.SECONDS)));
+                redisTemplate.opsForValue().set(key, value, time, TimeUnit.SECONDS);
             } else {
                 set(key, value);
             }
@@ -209,58 +130,57 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * 递增
+     * @param key 键
+     * @param delta 要增加几(大于0)
+     */
     public long increment(String key, long delta) {
         if (delta < 0) {
             throw new RuntimeException("递增因子必须大于0");
         }
-        return store.compute(key, (cacheKey, oldEntry) -> {
-            long current = 0L;
-            long expireAt = -1L;
-            if (oldEntry != null && !oldEntry.isExpired()) {
-                expireAt = oldEntry.expireAtMillis;
-                Object oldValue = oldEntry.value;
-                if (oldValue instanceof Number) {
-                    current = ((Number) oldValue).longValue();
-                } else if (oldValue != null) {
-                    try {
-                        current = Long.parseLong(oldValue.toString());
-                    } catch (NumberFormatException ignored) {
-                        current = 0L;
-                    }
-                }
-            }
-            return new CacheEntry(current + delta, expireAt);
-        }).value instanceof Number ? ((Number) store.get(key).value).longValue() : 0L;
+        return redisTemplate.opsForValue().increment(key, delta);
     }
 
+    /**
+     * 递减
+     * @param key 键
+     * @param delta 要减少几(小于0)
+     */
     public long decrement(String key, long delta) {
         if (delta < 0) {
             throw new RuntimeException("递减因子必须大于0");
         }
-        return increment(key, -delta);
+        return redisTemplate.opsForValue().increment(key, -delta);
     }
 
     // ================================Map=================================
+    /**
+     * HashGet
+     * @param key 键 不能为null
+     * @param item 项 不能为null
+     */
     public Object hGet(String key, String item) {
-        CacheEntry entry = getEntry(key);
-        if (entry == null || !(entry.value instanceof Map)) {
-            return null;
-        }
-        return ((Map<?, ?>) entry.value).get(item);
+        return redisTemplate.opsForHash().get(key, item);
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * 获取hashKey对应的所有键值
+     * @param key 键
+     * @return 对应的多个键值
+     */
     public Map<Object, Object> hGetAll(String key) {
-        CacheEntry entry = getEntry(key);
-        if (entry == null || !(entry.value instanceof Map)) {
-            return Collections.emptyMap();
-        }
-        return new HashMap<>((Map<Object, Object>) entry.value);
+        return redisTemplate.opsForHash().entries(key);
     }
 
+    /**
+     * HashSet
+     * @param key 键
+     * @param map 对应多个键值
+     */
     public boolean hSet(String key, Map<String, Object> map) {
         try {
-            store.put(key, new CacheEntry(new HashMap<>(map), -1));
+            redisTemplate.opsForHash().putAll(key, map);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -268,148 +188,16 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * HashSet 并设置时间
+     * @param key 键
+     * @param map 对应多个键值
+     * @param time 时间(秒)
+     * @return true成功 false失败
+     */
     public boolean hSet(String key, Map<String, Object> map, long time) {
         try {
-            store.put(key, new CacheEntry(new HashMap<>(map), time > 0 ? toExpireAtMillis(time, TimeUnit.SECONDS) : -1));
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public boolean hSet(String key, String item, Object value) {
-        try {
-            CacheEntry entry = getEntry(key);
-            Map<String, Object> map;
-            long expireAt = -1L;
-            if (entry != null && entry.value instanceof Map) {
-                map = new HashMap<>((Map<String, Object>) entry.value);
-                expireAt = entry.expireAtMillis;
-            } else {
-                map = new HashMap<>();
-            }
-            map.put(item, value);
-            store.put(key, new CacheEntry(map, expireAt));
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public void hDelete(String key, Object... item) {
-        CacheEntry entry = getEntry(key);
-        if (entry == null || !(entry.value instanceof Map) || item == null || item.length == 0) {
-            return;
-        }
-        Map<Object, Object> map = new HashMap<>((Map<Object, Object>) entry.value);
-        for (Object field : item) {
-            map.remove(field);
-        }
-        store.put(key, new CacheEntry(map, entry.expireAtMillis));
-    }
-
-    // ============================set=============================
-    public Set<Object> sGet(String key) {
-        try {
-            CacheEntry entry = getEntry(key);
-            if (entry == null || !(entry.value instanceof Set)) {
-                return null;
-            }
-            return new LinkedHashSet<>((Set<Object>) entry.value);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public long sAdd(String key, Object... values) {
-        try {
-            CacheEntry entry = getEntry(key);
-            Set<Object> set;
-            long expireAt = -1L;
-            if (entry != null && entry.value instanceof Set) {
-                set = new LinkedHashSet<>((Set<Object>) entry.value);
-                expireAt = entry.expireAtMillis;
-            } else {
-                set = new LinkedHashSet<>();
-            }
-            if (values != null) {
-                set.addAll(Arrays.asList(values));
-            }
-            store.put(key, new CacheEntry(set, expireAt));
-            return set.size();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return 0;
-        }
-    }
-
-    public boolean sIsMember(String key, Object value) {
-        try {
-            CacheEntry entry = getEntry(key);
-            return entry != null && entry.value instanceof Set && ((Set<?>) entry.value).contains(value);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public long sGetSetSize(String key) {
-        try {
-            CacheEntry entry = getEntry(key);
-            return entry != null && entry.value instanceof Set ? ((Set<?>) entry.value).size() : 0;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return 0;
-        }
-    }
-
-    // ===============================list=================================
-    public List<Object> lGet(String key, long start, long end) {
-        try {
-            CacheEntry entry = getEntry(key);
-            if (entry == null || !(entry.value instanceof List)) {
-                return null;
-            }
-            List<Object> list = new ArrayList<>((List<Object>) entry.value);
-            int size = list.size();
-            int fromIndex = (int) Math.max(0, start);
-            int toIndex = end < 0 ? size : (int) Math.min(size, end + 1);
-            if (fromIndex >= size || fromIndex >= toIndex) {
-                return Collections.emptyList();
-            }
-            return new ArrayList<>(list.subList(fromIndex, toIndex));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public boolean lPush(String key, Object value) {
-        try {
-            CacheEntry entry = getEntry(key);
-            LinkedList<Object> list;
-            long expireAt = -1L;
-            if (entry != null && entry.value instanceof List) {
-                list = new LinkedList<>((List<Object>) entry.value);
-                expireAt = entry.expireAtMillis;
-            } else {
-                list = new LinkedList<>();
-            }
-            list.addLast(value);
-            store.put(key, new CacheEntry(list, expireAt));
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public boolean lPush(String key, Object value, long time) {
-        try {
-            lPush(key, value);
+            redisTemplate.opsForHash().putAll(key, map);
             if (time > 0) {
                 expire(key, time);
             }
@@ -420,21 +208,16 @@ public class RedisUtil {
         }
     }
 
-    public boolean lPushAll(String key, List<Object> value) {
+    /**
+     * 向一张hash表中放入数据,如果不存在将创建
+     * @param key 键
+     * @param item 项
+     * @param value 值
+     * @return true 成功 false失败
+     */
+    public boolean hSet(String key, String item, Object value) {
         try {
-            CacheEntry entry = getEntry(key);
-            LinkedList<Object> list;
-            long expireAt = -1L;
-            if (entry != null && entry.value instanceof List) {
-                list = new LinkedList<>((List<Object>) entry.value);
-                expireAt = entry.expireAtMillis;
-            } else {
-                list = new LinkedList<>();
-            }
-            if (value != null) {
-                list.addAll(value);
-            }
-            store.put(key, new CacheEntry(list, expireAt));
+            redisTemplate.opsForHash().put(key, item, value);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -442,16 +225,146 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * 删除hash表中的值
+     * @param key 键 不能为null
+     * @param item 项 可以使多个 不能为null
+     */
+    public void hDelete(String key, Object... item) {
+        redisTemplate.opsForHash().delete(key, item);
+    }
+
+    // ============================set=============================
+    /**
+     * 根据key获取Set中的所有值
+     * @param key 键
+     */
+    public Set<Object> sGet(String key) {
+        try {
+            return redisTemplate.opsForSet().members(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 将数据放入set缓存
+     * @param key 键
+     * @param values 值 可以是多个
+     * @return 成功个数
+     */
+    public long sAdd(String key, Object... values) {
+        try {
+            return redisTemplate.opsForSet().add(key, values);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    /**
+     * 根据value从一个set中查询,是否存在
+     * @param key 键
+     * @param value 值
+     * @return true 存在 false不存在
+     */
+    public boolean sIsMember(String key, Object value) {
+        try {
+            return redisTemplate.opsForSet().isMember(key, value);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 获取set的大小
+     * @param key 键
+     * @return set大小
+     */
+    public long sGetSetSize(String key) {
+        try {
+            return redisTemplate.opsForSet().size(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    // ===============================list=================================
+    /**
+     * 获取list缓存的内容
+     * @param key 键
+     * @param start 开始
+     * @param end 结束 0 到 -1代表所有值
+     */
+    public List<Object> lGet(String key, long start, long end) {
+        try {
+            return redisTemplate.opsForList().range(key, start, end);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 将list放入缓存
+     * @param key 键
+     * @param value 值
+     */
+    public boolean lPush(String key, Object value) {
+        try {
+            redisTemplate.opsForList().rightPush(key, value);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 将list放入缓存
+     * @param key 键
+     * @param value 值
+     * @param time 时间(秒)
+     */
+    public boolean lPush(String key, Object value, long time) {
+        try {
+            redisTemplate.opsForList().rightPush(key, value);
+            if (time > 0) {
+                expire(key, time);
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 将list放入缓存
+     * @param key 键
+     * @param value 值
+     */
+    public boolean lPushAll(String key, List<Object> value) {
+        try {
+            redisTemplate.opsForList().rightPushAll(key, value);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 移除并获取列表最后一个元素
+     * @param key 键
+     * @return
+     */
     public Object lPop(String key) {
         try {
-            CacheEntry entry = getEntry(key);
-            if (entry == null || !(entry.value instanceof List)) {
-                return null;
-            }
-            LinkedList<Object> list = new LinkedList<>((List<Object>) entry.value);
-            Object value = list.pollLast();
-            store.put(key, new CacheEntry(list, entry.expireAtMillis));
-            return value;
+            return redisTemplate.opsForList().rightPop(key);
         } catch (Exception e) {
             e.printStackTrace();
             return null;

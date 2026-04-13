@@ -42,11 +42,11 @@ MODEL_NAME = "qwen-plus"
 
 # 数据库配置
 DB_CONFIG = {
-    'host': '47.96.254.64',
-    'port': 3306,
-    'user': 'cuigu',
-    'password': 'cuiguzjuter',
-    'database': 'javaee',
+    'host': os.getenv('DB_HOST', '47.96.254.64'),
+    'port': int(os.getenv('DB_PORT', '3306')),
+    'user': os.getenv('DB_USER', 'cuigu'),
+    'password': os.getenv('DB_PASSWORD', 'cuiguzjuter'),
+    'database': os.getenv('DB_NAME', 'javaee'),
     'charset': 'utf8mb4'
 }
 
@@ -216,6 +216,8 @@ def get_table_columns_info(table: str) -> (str, str):
 
 def sanitize_user_id(raw_user_id: str) -> str:
     """确保 user_id 可安全用于 SQL（仅保留数字部分）。"""
+    if not raw_user_id or str(raw_user_id).strip().lower() in ('undefined', 'null', 'none', ''):
+        return ''
     try:
         return str(int(raw_user_id))
     except (ValueError, TypeError):
@@ -1022,7 +1024,7 @@ def get_history():
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        data = request.json or {}
+        data = request.get_json(force=True, silent=True) or {}
         message = data.get('message', '').strip()
         role = data.get('role', 'student')
         raw_user_id = data.get('userId')

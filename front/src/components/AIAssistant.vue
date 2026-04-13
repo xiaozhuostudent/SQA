@@ -115,7 +115,7 @@ export default {
     },
     userId: {
       type: [String, Number],
-      required: true
+      default: null
     },
     username: {
       type: String,
@@ -247,6 +247,11 @@ export default {
 
     async sendMessage() {
       if (!this.inputMessage.trim() && !this.uploadedFile) return
+      
+      if (!this.userId) {
+        this.$message.error('用户信息未加载，请刷新页面后重试')
+        return
+      }
       
       if (!this.currentSessionId) {
         await this.createNewSession()
