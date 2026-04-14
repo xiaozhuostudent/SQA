@@ -123,8 +123,12 @@
           v-model="userAnswer"
           class="answer-group"
         >
-          <el-radio v-for="option in parseOptions(currentQuestion.options)" :key="option" :label="option">
-            {{ option }}
+          <el-radio
+            v-for="option in normalizeOptions(currentQuestion.options)"
+            :key="option.key"
+            :label="option.key"
+          >
+            {{ option.key }}. {{ option.value }}
           </el-radio>
         </el-radio-group>
         
@@ -134,8 +138,12 @@
           v-model="userAnswer"
           class="answer-group"
         >
-          <el-checkbox v-for="option in parseOptions(currentQuestion.options)" :key="option" :label="option">
-            {{ option }}
+          <el-checkbox
+            v-for="option in normalizeOptions(currentQuestion.options)"
+            :key="option.key"
+            :label="option.key"
+          >
+            {{ option.key }}. {{ option.value }}
           </el-checkbox>
         </el-checkbox-group>
         
@@ -145,8 +153,8 @@
           v-model="userAnswer"
           class="answer-group"
         >
-          <el-radio label="对">对</el-radio>
-          <el-radio label="错">错</el-radio>
+          <el-radio label="true">对</el-radio>
+          <el-radio label="false">错</el-radio>
         </el-radio-group>
         
         <!-- 主观题 -->
@@ -208,8 +216,12 @@
             v-model="examAnswers[question.id]"
             class="answer-group"
           >
-            <el-radio v-for="option in parseOptions(question.options)" :key="option" :label="option">
-              {{ option }}
+            <el-radio
+              v-for="option in normalizeOptions(question.options)"
+              :key="option.key"
+              :label="option.key"
+            >
+              {{ option.key }}. {{ option.value }}
             </el-radio>
           </el-radio-group>
           
@@ -219,8 +231,12 @@
             v-model="examAnswers[question.id]"
             class="answer-group"
           >
-            <el-checkbox v-for="option in parseOptions(question.options)" :key="option" :label="option">
-              {{ option }}
+            <el-checkbox
+              v-for="option in normalizeOptions(question.options)"
+              :key="option.key"
+              :label="option.key"
+            >
+              {{ option.key }}. {{ option.value }}
             </el-checkbox>
           </el-checkbox-group>
           
@@ -230,8 +246,8 @@
             v-model="examAnswers[question.id]"
             class="answer-group"
           >
-            <el-radio label="对">对</el-radio>
-            <el-radio label="错">错</el-radio>
+            <el-radio label="true">对</el-radio>
+            <el-radio label="false">错</el-radio>
           </el-radio-group>
           
           <!-- 主观题 -->
@@ -412,10 +428,130 @@ const parseOptions = (options) => {
     try {
       return JSON.parse(options)
     } catch {
-      return options.split(/[;；]/).map(o => o.trim()).filter(o => o)
+      return options
+        .split(/[;；\n\r]/)
+        .map(o => o.trim())
+        .filter(o => o)
     }
   }
   return []
+}
+
+const normalizeOptions = (options) => {
+  const raw = parseOptions(options)
+  if (!Array.isArray(raw)) return []
+
+  // 兼容：['选项1','选项2'] / [{key,value}] / [{label}] 等多种存储格式
+  const normalized = raw
+    .map((item, index) => {
+      if (item == null) return null
+      if (typeof item === 'string') {
+        return {
+          key: String.fromCharCode(65 + index),
+          value: item.trim()
+        }
+      }
+
+      if (typeof item === 'object') {
+        const key = String(item.key || item.K || '').trim() || String.fromCharCode(65 + index)
+        const value = String(item.value ?? item.label ?? item.text ?? '').trim()
+        return {
+          key,
+          value
+        }
+      }
+
+      return {
+        key: String.fromCharCode(65 + index),
+        value: String(item).trim()
+      }
+    })
+    .filter(Boolean)
+    .filter(o => o.value)
+
+  return normalized
+}
+
+const normalizeBoolAnswer = (value) => {
+  const s = String(value ?? '').trim().toLowerCase()
+  if (['true', 't', '1', '对', '正确', '是', 'yes', 'y'].includes(s)) return 'true'
+  if (['false', 'f', '0', '错', '错误', '否', 'no', 'n'].includes(s)) return 'false'
+  return String(value ?? '').trim()
+}
+
+const normalizeChoiceAnswerToKeys = (answer, options) => {
+  const answerStr = String(answer ?? '').trim()
+  if (!answerStr) return ''
+
+  const valueToKey = new Map(
+    (options || [])
+      .filter(o => o && o.key)
+      .map(o => [String(o.value ?? '').trim().toLowerCase(), String(o.key).trim().toUpperCase()])
+  )
+
+  const tokens = answerStr
+    .split(/[,|，、\s]+/)
+    .map(t => t.trim())
+    .filter(Boolean)
+
+  // 单选：支持 'B' 或直接存了选项文本
+  if (tokens.length === 1) {
+    const t = tokens[0]
+    if (/^[A-Za-z]$/.test(t)) return t.toUpperCase()
+    const mapped = valueToKey.get(t.toLowerCase())
+    return mapped || t
+  }
+
+  // 多选：支持 'A,B' / 'A|B' / 直接存选项文本
+  const mappedTokens = tokens.map(t => {
+    if (/^[A-Za-z]$/.test(t)) return t.toUpperCase()
+    return valueToKey.get(t.toLowerCase()) || t
+  })
+
+  return mappedTokens.join(',')
+}
+
+const judgeAnswer = (question, userAnswerValue) => {
+  const questionType = question?.questionType
+  const options = normalizeOptions(question?.options)
+
+  // 统一处理正确答案（兼容旧数据：可能存 key 或存选项文本）
+  let correctAnswerRaw = question?.answer
+  if (questionType === 'true_false') {
+    correctAnswerRaw = normalizeBoolAnswer(correctAnswerRaw)
+  } else if (questionType === 'single_choice' || questionType === 'multiple_choice') {
+    correctAnswerRaw = normalizeChoiceAnswerToKeys(correctAnswerRaw, options)
+  } else {
+    correctAnswerRaw = String(correctAnswerRaw ?? '').trim()
+  }
+
+  // 统一处理用户答案
+  let userAnswerNormalized = userAnswerValue
+  if (questionType === 'true_false') {
+    userAnswerNormalized = normalizeBoolAnswer(userAnswerValue)
+  }
+
+  // 多选
+  if (questionType === 'multiple_choice') {
+    const correctTokens = String(correctAnswerRaw)
+      .split(/[,|，、\s]+/)
+      .map(t => t.trim().toUpperCase())
+      .filter(Boolean)
+      .sort()
+    const userTokens = Array.isArray(userAnswerNormalized)
+      ? userAnswerNormalized.map(t => String(t).trim().toUpperCase()).filter(Boolean).sort()
+      : String(userAnswerNormalized ?? '')
+          .split(/[,|，、\s]+/)
+          .map(t => t.trim().toUpperCase())
+          .filter(Boolean)
+          .sort()
+    return JSON.stringify(userTokens) === JSON.stringify(correctTokens)
+  }
+
+  // 单选 / 判断 / 主观
+  const correctStr = String(correctAnswerRaw ?? '').trim()
+  const userStr = String(userAnswerNormalized ?? '').trim()
+  return userStr.toLowerCase() === correctStr.toLowerCase()
 }
 
 const checkAnswer = () => {
@@ -423,17 +559,8 @@ const checkAnswer = () => {
     ElMessage.warning('请先作答')
     return
   }
-  
-  const correctAnswer = String(currentQuestion.value.answer || '').trim()
-  let userAnswerStr = ''
-  
-  if (Array.isArray(userAnswer.value)) {
-    userAnswerStr = userAnswer.value.sort().join(',')
-  } else {
-    userAnswerStr = String(userAnswer.value).trim()
-  }
-  
-  isCorrect.value = userAnswerStr.toLowerCase() === correctAnswer.toLowerCase()
+
+  isCorrect.value = judgeAnswer(currentQuestion.value, userAnswer.value)
   showAnswer.value = true
   
   if (isCorrect.value) {
@@ -473,16 +600,8 @@ const gradeExam = () => {
   
   examQuestions.value.forEach(question => {
     const userAnswer = examAnswers.value[question.id]
-    const correctAnswer = String(question.answer || '').trim()
-    
-    let userAnswerStr = ''
-    if (Array.isArray(userAnswer)) {
-      userAnswerStr = userAnswer.sort().join(',')
-    } else {
-      userAnswerStr = String(userAnswer || '').trim()
-    }
-    
-    if (userAnswerStr.toLowerCase() === correctAnswer.toLowerCase()) {
+
+    if (judgeAnswer(question, userAnswer)) {
       score += question.score || 0
       correct++
     }

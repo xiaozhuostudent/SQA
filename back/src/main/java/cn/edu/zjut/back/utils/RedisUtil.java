@@ -40,7 +40,12 @@ public class RedisUtil {
      * @return 时间(秒) 返回0代表为永久有效
      */
     public long getExpire(String key) {
-        return redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        try {
+            return redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     /**
@@ -63,12 +68,16 @@ public class RedisUtil {
      */
     @SuppressWarnings("unchecked")
     public void delete(String... key) {
-        if (key != null && key.length > 0) {
-            if (key.length == 1) {
-                redisTemplate.delete(key[0]);
-            } else {
-                redisTemplate.delete((Collection<String>) Arrays.asList(key));
+        try {
+            if (key != null && key.length > 0) {
+                if (key.length == 1) {
+                    redisTemplate.delete(key[0]);
+                } else {
+                    redisTemplate.delete((Collection<String>) Arrays.asList(key));
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -77,9 +86,13 @@ public class RedisUtil {
      * @param pattern 模式，如 "user:*"
      */
     public void deleteByPattern(String pattern) {
-        Set<String> keys = redisTemplate.keys(pattern);
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        try {
+            Set<String> keys = redisTemplate.keys(pattern);
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -90,7 +103,13 @@ public class RedisUtil {
      * @return 值
      */
     public Object get(String key) {
-        return key == null ? null : redisTemplate.opsForValue().get(key);
+        try {
+            return key == null ? null : redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            // Redis 不可用时降级为无缓存
+            e.printStackTrace();
+            return null;
+        }
     }
 
     /**
@@ -139,7 +158,13 @@ public class RedisUtil {
         if (delta < 0) {
             throw new RuntimeException("递增因子必须大于0");
         }
-        return redisTemplate.opsForValue().increment(key, delta);
+        try {
+            return redisTemplate.opsForValue().increment(key, delta);
+        } catch (Exception e) {
+            // Redis 不可用时降级：不抛出异常，返回 0 表示未使用缓存计数
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     /**
@@ -151,7 +176,12 @@ public class RedisUtil {
         if (delta < 0) {
             throw new RuntimeException("递减因子必须大于0");
         }
-        return redisTemplate.opsForValue().increment(key, -delta);
+        try {
+            return redisTemplate.opsForValue().increment(key, -delta);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     // ================================Map=================================
@@ -161,7 +191,12 @@ public class RedisUtil {
      * @param item 项 不能为null
      */
     public Object hGet(String key, String item) {
-        return redisTemplate.opsForHash().get(key, item);
+        try {
+            return redisTemplate.opsForHash().get(key, item);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     /**
@@ -170,7 +205,12 @@ public class RedisUtil {
      * @return 对应的多个键值
      */
     public Map<Object, Object> hGetAll(String key) {
-        return redisTemplate.opsForHash().entries(key);
+        try {
+            return redisTemplate.opsForHash().entries(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Collections.emptyMap();
+        }
     }
 
     /**
@@ -231,7 +271,11 @@ public class RedisUtil {
      * @param item 项 可以使多个 不能为null
      */
     public void hDelete(String key, Object... item) {
-        redisTemplate.opsForHash().delete(key, item);
+        try {
+            redisTemplate.opsForHash().delete(key, item);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // ============================set=============================

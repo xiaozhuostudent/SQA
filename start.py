@@ -26,6 +26,10 @@ NC = '\033[0m'  # No Color
 PROJECT_DIR = Path(__file__).parent.resolve()
 os.chdir(PROJECT_DIR)
 
+# === Maven 本地仓库路径（规避 Windows 中文用户名/编码导致的 classpath 乱码问题）===
+# 可通过环境变量 MAVEN_REPO_LOCAL 覆盖。
+MAVEN_REPO_LOCAL = os.environ.get("MAVEN_REPO_LOCAL") or str((PROJECT_DIR / ".m2repo").resolve())
+
 AI_SERVICE_DIR = PROJECT_DIR / "ai-service"
 AI_SERVICE_PORT = 5052
 
@@ -34,12 +38,13 @@ PYTHON_CMD = str(sys.executable) if sys.executable else (
     "python.exe" if platform.system() == "Windows" else "python3"
 )
 
-# === 远程数据库配置（请根据实际情况修改）===
-DB_HOST = "120.26.212.210"
+# === 数据库配置（默认连接远程 MySQL）===
+# 说明：start.py 这里只做端口可达性检测；真正的后端连接请看 back/src/main/resources/application.properties
+DB_HOST = "47.96.254.64"
 DB_PORT = 3306
 DB_NAME = "javaee"
-DB_USER = "javaee"
-DB_PASS = "@Yali123456"
+DB_USER = "cuigu"
+DB_PASS = "cuiguzjuter"
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -65,7 +70,8 @@ def run_cmd(cmd, shell=None, check=False, capture_output=False):
 def get_mvnw_command(*args):
     """返回适用于当前操作系统的 mvnw 命令列表"""
     base = "mvnw.cmd" if IS_WINDOWS else "./mvnw"
-    return [base] + list(args)
+    # 统一指定本地仓库到纯英文路径，避免 fork JVM 时 classpath 指向乱码目录
+    return [base, f"-Dmaven.repo.local={MAVEN_REPO_LOCAL}"] + list(args)
 
 
 def is_port_in_use(port):
@@ -119,6 +125,13 @@ def main():
     print_color("🚀 JavaEE课程管理系统 - 一键启动", BLUE)
     print("==================================\n")
 
+    # 确保 Maven 本地仓库目录存在
+    try:
+        Path(MAVEN_REPO_LOCAL).mkdir(parents=True, exist_ok=True)
+        print_color(f"Maven 本地仓库: {MAVEN_REPO_LOCAL}", BLUE)
+    except Exception as e:
+        print_color(f"⚠️  无法创建 Maven 本地仓库目录: {MAVEN_REPO_LOCAL} ({e})", YELLOW)
+
     # [0/4] 关闭代理
     print_color("[0/4] 关闭代理设置...", YELLOW)
     env_vars_to_unset = ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'all_proxy', 'ALL_PROXY']
@@ -171,7 +184,12 @@ def main():
             # Windows: 使用 cmd /c start 在新窗口中启动
             mvnw_cmd = str(back_dir / "mvnw.cmd")
             # 使用 cmd 启动新的 PowerShell 窗口
-            cmd = f'start "后端服务" /D "{back_dir}" cmd /c "mvnw.cmd spring-boot:run > {backend_log_path} 2>&1"'
+            # Windows 下禁用 fork（再加上固定 maven.repo.local），避免 classpath 乱码导致 NoClassDefFoundError
+            cmd = (
+                f'start "后端服务" /D "{back_dir}" cmd /c "'
+                f'mvnw.cmd -Dmaven.repo.local={MAVEN_REPO_LOCAL} -Dspring-boot.run.fork=false '
+                f'spring-boot:run > {backend_log_path} 2>&1"'
+            )
             subprocess.Popen(
                 cmd,
                 shell=True,

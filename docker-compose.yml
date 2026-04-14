@@ -2,119 +2,11 @@
 # JavaEE 课程管理系统 - 主 Docker Compose
 # ==========================================
 # 包含所有服务：后端、前端、AI服务、SRS流媒体
-# 使用远程 MySQL 数据库（120.26.212.210）
+# 默认连接本机 MySQL（宿主机上安装的 MySQL）
 # ==========================================
 
-version: '3.8'
-
 services:
-  # ==========================================
-  # Redis 缓存服务
-  # ==========================================
-  redis:
-    image: redis:7.2-alpine
-    container_name: yali-redis
-    ports:
-      - "6379:6379"
-    command: redis-server --requirepass redis123456 --appendonly yes
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    networks:
-      - yali-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-  # ==========================================
-  # 后端服务 (Spring Boot)
-  # ==========================================
-  backend:
-    build:
-      context: ./back
-      dockerfile: Dockerfile
-    container_name: yali-backend
-    ports:
-      - "8080:8080"
-    environment:
-      # 数据库配置（远程服务器）
-      - SPRING_DATASOURCE_URL=jdbc:mysql://120.26.212.210:3306/javaee?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=javaee
-      - SPRING_DATASOURCE_PASSWORD=@Yali123456
-      # Redis配置（远程服务器）
-      - SPRING_DATA_REDIS_HOST=120.26.212.210
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=@Yali123456
-      # 应用配置
-      - SERVER_PORT=8080
-      - JAVA_OPTS=-Xmx512m -Xms256m
-    volumes:
-      - ./storage:/app/storage
-      - ./logs:/app/logs
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - yali-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/course/all"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # ==========================================
-  # 前端服务 (Vue3 + Vite)
-  # ==========================================
-  frontend:
-    build:
-      context: ./front
-      dockerfile: Dockerfile
-    container_name: yali-frontend
-    ports:
-      - "3001:3001"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080
-      - VITE_AI_BASE_URL=http://localhost:5051
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - yali-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ==========================================
-  # AI 服务 (Flask)
-  # ==========================================
-  ai-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    container_name: yali-ai
-    ports:
-      - "5051:5051"
-    environment:
-      - FLASK_ENV=production
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
-    networks:
-      - yali-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5051"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
+ 
   # ==========================================
   # SRS 流媒体服务器
   # ==========================================
@@ -166,29 +58,12 @@ services:
       retries: 3
       start_period: 60s
 
-# ==========================================
-# 网络配置
-# ==========================================
 networks:
   yali-network:
     driver: bridge
-    name: yali-network
 
-# ==========================================
-# 数据卷配置
-# ==========================================
 volumes:
-  redis-data:
-    driver: local
-  storage-data:
-    driver: local
-  logs-data:
-    driver: local
   onlyoffice-data:
-    driver: local
   onlyoffice-logs:
-    driver: local
   onlyoffice-fonts:
-    driver: local
   onlyoffice-forgotten:
-    driver: local

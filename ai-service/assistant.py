@@ -37,16 +37,17 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 CORS(app)
 
 # 配置
-API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+API_KEY = os.getenv("DASHSCOPE_API_KEY", "sk-cc859963a4c2462ea6bf822147df4bb0")
 MODEL_NAME = "qwen-plus"
 
-# 数据库配置
+# 数据库配置（默认连接远程，可用环境变量覆盖）
+# 支持：DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASS
 DB_CONFIG = {
-    'host': '120.26.212.210',
-    'port': 3306,
-    'user': 'javaee',
-    'password': '@Yali123456',
-    'database': 'javaee',
+    'host': os.getenv('DB_HOST', '47.96.254.64'),
+    'port': int(os.getenv('DB_PORT', '3306')),
+    'user': os.getenv('DB_USER', 'cuigu'),
+    'password': os.getenv('DB_PASS', 'cuiguzjuter'),
+    'database': os.getenv('DB_NAME', 'javaee'),
     'charset': 'utf8mb4'
 }
 
@@ -663,8 +664,9 @@ def keyword_sql_plan(message: str, role: str, user_id: str) -> Optional[Dict[str
                     (SELECT COUNT(*) FROM tb_homework WHERE course_id IN (
                         SELECT course_id FROM tb_course_selection WHERE student_id = %s
                     )) AS total_assignments
-                FROM tb_homework_submission hs
-                WHERE hs.student_id = %s
+                                FROM tb_student_homework hs
+                                WHERE hs.student_id = %s
+                                    AND hs.status IN ('submitted','graded')
             """, (sanitized_user_id, sanitized_user_id))
             row = cursor.fetchone()
             cursor.close()
@@ -681,7 +683,7 @@ def keyword_sql_plan(message: str, role: str, user_id: str) -> Optional[Dict[str
             return {
                 'need_db': True,
                 'reason': '查询学生作业完成情况',
-                'sql': f"SELECT COUNT(hs.id) AS total_submitted FROM tb_homework_submission hs WHERE hs.student_id = {sanitized_user_id}",
+                'sql': f"SELECT COUNT(hs.id) AS total_submitted FROM tb_student_homework hs WHERE hs.student_id = {sanitized_user_id} AND hs.status IN ('submitted','graded')",
                 'summary': summary
             }
         except Exception as e:
@@ -1112,6 +1114,12 @@ def chat():
         else:
             messages.append({'role': 'user', 'content': message})
 
+        if not API_KEY:
+            return jsonify({
+                'success': False,
+                'error': 'DASHSCOPE_API_KEY 未配置，无法调用大模型。请设置环境变量 DASHSCOPE_API_KEY 后重启 AI 服务。'
+            }), 503
+
         db_context = {}
         # 只有非图片请求才查询数据库
         if not images:
@@ -1216,8 +1224,20 @@ def chat():
                             bot_reply = str(content)
         else:
             # qwen-plus 文本模型的响应格式
-            if response and 'output' in response and 'text' in response['output']:
-                bot_reply = response['output']['text']
+            try:
+                if isinstance(response, dict):
+                    output = response.get('output')
+                    if isinstance(output, dict) and isinstance(output.get('text'), str):
+                        bot_reply = output['text']
+                    else:
+                        # DashScope 在失败时可能返回 {'output': None, 'message': '...'}
+                        print(f"无法从响应中提取文本 output: {response}")
+                elif hasattr(response, 'output') and hasattr(response.output, 'text'):
+                    bot_reply = response.output.text
+                else:
+                    print(f"无法识别的文本模型响应结构: {response}")
+            except Exception as exc:
+                print(f"解析文本模型响应失败: {exc}, 原始响应: {response}")
         
         if bot_reply:
             user_msg_display = message or '【图片】'
